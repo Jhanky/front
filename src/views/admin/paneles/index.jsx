@@ -5,8 +5,9 @@ import Modal from "components/modal";
 import { useAuth } from "context/AuthContext";
 import Mensaje from "components/mensaje";
 import Loading from "components/loading";
+import { getApiUrl, getTechnicalSheetUrl } from '../../../config/api';
 
-const Paneles = () => {
+const Paneles = async () => {
   const { user } = useAuth();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -51,7 +52,7 @@ const Paneles = () => {
         order: sortOrder
       });
 
-      const response = await fetch(`http://localhost:3000/api/panels?${queryParams}`, {
+      const response = await fetch(getApiUrl(`/api/panels?${queryParams}`), {
         headers: {
           Authorization: `Bearer ${user.token}`
         }
@@ -468,13 +469,16 @@ const Paneles = () => {
   };
 
   const getFichaTecnicaUrl = (url) => {
-    if (!url) return null;
-    // Si la URL ya es completa, la devolvemos tal cual
-    if (url.startsWith('http')) return url;
-    // Si es una ruta relativa, la combinamos con la URL base
-    return `http://localhost:3000${url}`;
+    return getTechnicalSheetUrl(url);
   };
 
+  // Reemplazar todas las URLs hardcodeadas con:
+  const response = await fetch(getApiUrl(`/api/panels?${queryParams}`), {
+    headers: {
+      Authorization: `Bearer ${user.token}`
+    }
+  });
+  
   if (loading) {
     return <Loading />;
   }
@@ -914,7 +918,7 @@ const Paneles = () => {
                   <p className="text-sm font-medium text-gray-600">Ficha Técnica</p>
                     {panelInfo.technical_sheet_url ? (
                     <a
-                        href={`http://localhost:3000${panelInfo.technical_sheet_url}`}
+                        href={getTechnicalSheetUrl(panelInfo.technical_sheet_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-700 underline"
@@ -954,4 +958,4 @@ const Paneles = () => {
   );
 };
 
-export default Paneles; 
+export default Paneles;

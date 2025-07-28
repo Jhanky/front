@@ -3,9 +3,9 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Navbar from "components/navbar";
 import Sidebar from "components/sidebar";
 import Footer from "components/footer/Footer";
-import routes from "routes.js";
 import routeComponents from "routesComponents";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from 'context/AuthContext';
+import routesModule from 'routes/index';
 import Loading from "components/loading";
 
 const Admin = () => {
@@ -14,6 +14,9 @@ const Admin = () => {
   const [open, setOpen] = React.useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [currentRoute, setCurrentRoute] = React.useState("Main Dashboard");
+  
+  // Obtener rutas según el rol del usuario
+  const routes = routesModule.getRoutesByRole(user?.role);
 
   React.useEffect(() => {
     // Desactivar modo oscuro
@@ -28,7 +31,7 @@ const Admin = () => {
 
   React.useEffect(() => {
     getActiveRoute(routes);
-  }, [location.pathname]);
+  }, [location.pathname, routes]);
 
   const getActiveRoute = (routes) => {
     let activeRoute = "Main Dashboard";

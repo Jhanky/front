@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { getApiUrl } from '../config/api';
 
 const AuthContext = createContext(null);
 
@@ -23,10 +24,9 @@ const USUARIOS_EJEMPLO = [
 ];
 
 const ROLES = {
-  1: "admin",
-  2: "comercial",
-  3: "tecnico",
-  4: "bodeguero"
+  1: "admin",      // Administrador
+  2: "comercial",  // Comercial  
+  3: "tecnico"     // Técnico
 };
 
 export const AuthProvider = ({ children }) => {
@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await fetch("http://localhost:3000/api/auth/login", {
+      const response = await fetch(getApiUrl('/api/auth/login'), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -119,4 +119,4 @@ export const useAuth = () => {
     throw new Error("useAuth debe ser usado dentro de un AuthProvider");
   }
   return context;
-}; 
+};

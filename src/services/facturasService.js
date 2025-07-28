@@ -1,5 +1,5 @@
 // Servicio para manejar las operaciones de facturas
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://149.130.169.113:3030';
 
 export const facturasService = {
   // Obtener todas las facturas
@@ -127,4 +127,4 @@ export const facturasService = {
       throw error;
     }
   }
-}; 
+};

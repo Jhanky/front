@@ -1,5 +1,5 @@
 // Servicio para manejar las llamadas a los endpoints de proyectos
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://149.130.169.113:3030';
 
 export const proyectosService = {
   // Obtener proyectos activos con facturas
@@ -98,4 +98,4 @@ export const proyectosService = {
       throw error;
     }
   }
-}; 
+};

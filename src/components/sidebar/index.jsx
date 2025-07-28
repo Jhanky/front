@@ -4,11 +4,15 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import { HiX, HiChevronLeft, HiChevronRight } from "react-icons/hi";
 import Links from "./components/Links";
-
-import routes from "routes.js";
+import { useAuth } from "context/AuthContext";
+import routesModule from "routes/index";
 
 const Sidebar = ({ open, onClose, onCollapse }) => {
   const [collapsed, setCollapsed] = React.useState(false);
+  const { user } = useAuth();
+  
+  // Obtener rutas según el rol del usuario
+  const routes = routesModule.getRoutesByRole(user?.role);
 
   const toggleSidebar = () => {
     const newCollapsed = !collapsed;

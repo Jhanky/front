@@ -34,6 +34,8 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:prod": "REACT_APP_API_URL=http://149.130.169.113:3030 react-scripts build",
+    "build:dev": "REACT_APP_API_URL=http://149.130.169.113:3030 react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "pretty": "prettier --write \"./**/*.{js,jsx,json}\""

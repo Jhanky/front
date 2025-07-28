@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import routes from "routes.js";
+import routesModule from "routes/index";
 import routeComponents from "routesComponents";
 
 export default function Auth() {
@@ -14,6 +14,7 @@ export default function Auth() {
       }
     });
   };
+  
   document.documentElement.dir = "ltr";
   return (
     <div>
@@ -22,7 +23,7 @@ export default function Auth() {
           <div className="relative flex">
             <div className="mx-auto flex min-h-full w-full flex-col justify-start">
               <Routes>
-                {getRoutes(routes)}
+                {getRoutes(routesModule.allRoutes)}
                 <Route
                   path="/"
                   element={<Navigate to="/auth/sign-in" replace />}
