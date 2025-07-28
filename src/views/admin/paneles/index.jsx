@@ -7,7 +7,7 @@ import Mensaje from "components/mensaje";
 import Loading from "components/loading";
 import { getApiUrl, getTechnicalSheetUrl } from '../../../config/api';
 
-const Paneles = async () => {
+const Paneles = () => {
   const { user } = useAuth();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -51,7 +51,7 @@ const Paneles = async () => {
         sort: sortField,
         order: sortOrder
       });
-
+  
       const response = await fetch(getApiUrl(`/api/panels?${queryParams}`), {
         headers: {
           Authorization: `Bearer ${user.token}`
@@ -472,13 +472,6 @@ const Paneles = async () => {
     return getTechnicalSheetUrl(url);
   };
 
-  // Reemplazar todas las URLs hardcodeadas con:
-  const response = await fetch(getApiUrl(`/api/panels?${queryParams}`), {
-    headers: {
-      Authorization: `Bearer ${user.token}`
-    }
-  });
-  
   if (loading) {
     return <Loading />;
   }
