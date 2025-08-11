@@ -5,6 +5,7 @@ import Modal from "components/modal";
 import { useAuth } from "context/AuthContext";
 import Mensaje from "components/mensaje";
 import Loading from "components/loading";
+import { getApiUrl } from '../../../config/api';
 
 const Clientes = () => {
   const { user } = useAuth();
@@ -59,10 +60,11 @@ const Clientes = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch("http://localhost:3000/api/clients", {
+      const response = await fetch(getApiUrl('/api/clients'), {
         headers: {
           "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         }
       });
 
@@ -70,10 +72,22 @@ const Clientes = () => {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      setClientes(data);
+      const responseData = await response.json();
+    
+      // Verificar la estructura de respuesta de Laravel
+      if (responseData.success && responseData.data) {
+        // La respuesta viene con paginación, extraer solo los datos
+        const clientesData = responseData.data.data || [];
+        setClientes(clientesData);
+        console.log('Clientes cargados:', clientesData);
+      } else {
+        // Fallback para estructura anterior
+        setClientes(responseData.data || responseData || []);
+      }
+      
       setError(null);
     } catch (error) {
+      console.error('Error al cargar clientes:', error);
       setError(error.message);
       setClientes([]);
     } finally {
@@ -89,9 +103,10 @@ const Clientes = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch("http://localhost:3000/api/locations/departments", {
+      const response = await fetch(getApiUrl('/api/locations/departments'), {
         headers: {
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/json"
         }
       });
 
@@ -99,8 +114,14 @@ const Clientes = () => {
         throw new Error("Error al cargar los departamentos");
       }
 
-      const data = await response.json();
-      setDepartamentos(data);
+      const responseData = await response.json();
+      
+      // Manejar la nueva estructura de respuesta de Laravel
+      if (responseData.success && responseData.data) {
+        setDepartamentos(responseData.data);
+      } else {
+        throw new Error("Formato de respuesta inválido");
+      }
     } catch (error) {
       console.error("Error al cargar departamentos:", error);
       setError(error.message);
@@ -116,9 +137,10 @@ const Clientes = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch(`http://localhost:3000/api/locations/cities/${departamento}`, {
+      const response = await fetch(getApiUrl(`/api/locations/cities?department=${encodeURIComponent(departamento)}`), {
         headers: {
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/json"
         }
       });
 
@@ -126,8 +148,14 @@ const Clientes = () => {
         throw new Error("Error al cargar las ciudades");
       }
 
-      const data = await response.json();
-      setCiudades(data);
+      const responseData = await response.json();
+      
+      // Manejar la nueva estructura de respuesta de Laravel
+      if (responseData.success && responseData.data) {
+        setCiudades(responseData.data);
+      } else {
+        throw new Error("Formato de respuesta inválido");
+      }
     } catch (error) {
       console.error("Error al cargar ciudades:", error);
       setError(error.message);
@@ -205,10 +233,12 @@ const Clientes = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch(`http://localhost:3000/api/clients/${selectedCliente.client_id}`, {
+      const response = await fetch(getApiUrl(`/api/clients/${selectedCliente.client_id}`), {
         method: "DELETE",
         headers: {
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         }
       });
 
@@ -218,19 +248,21 @@ const Clientes = () => {
         throw new Error(data.mensaje || "Error al eliminar el cliente");
       }
 
+      // Eliminar el cliente del estado local dinámicamente
+      setClientes(prevClientes => 
+        prevClientes.filter(cliente => cliente.client_id !== selectedCliente.client_id)
+      );
+
       // Mostrar mensaje de éxito
       setMensajes([{
         contenido: "Cliente eliminado exitosamente",
         tipo: "success"
       }]);
       
-      // Limpiar mensaje después de 2 segundos
       setTimeout(() => {
         setMensajes([]);
       }, 2000);
 
-      // Actualizar la lista de clientes y cerrar el modal
-      await fetchClientes();
       setIsDeleteModalOpen(false);
     } catch (error) {
       setError(error.message);
@@ -271,7 +303,6 @@ const Clientes = () => {
     setError("");
     setMensajes([]);
     setEsperandoRespuesta(true);
-    setIntentosRestantes(5);
 
     try {
       const token = user?.token;
@@ -300,14 +331,16 @@ const Clientes = () => {
         address: formData.direccion,
         monthly_consumption_kwh: Number(formData.consumo_mensual_kwh),
         energy_rate: Number(formData.tarifa_energia),
-        network_type: formData.tipo_red
+        network_type: formData.tipo_red,
+        is_active: true
       };
 
-      const response = await fetch("http://localhost:3000/api/clients", {
+      const response = await fetch(getApiUrl('/api/clients'), {
         method: "POST",
         headers: {
+          "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Accept": "application/json"
         },
         body: JSON.stringify(clientData)
       });
@@ -318,22 +351,22 @@ const Clientes = () => {
         throw new Error(data.mensaje || "Error al crear el cliente");
       }
 
+      // Agregar el nuevo cliente al estado local dinámicamente
+      const nuevoCliente = data.data || data; // Adaptarse a la respuesta de Laravel
+      setClientes(prevClientes => [nuevoCliente, ...prevClientes]);
+
       // Mostrar mensaje de éxito
       setMensajes([{
         contenido: "Cliente registrado exitosamente",
         tipo: "success"
       }]);
       
-      // Limpiar mensaje después de 2 segundos
       setTimeout(() => {
         setMensajes([]);
       }, 2000);
 
-      // Cerrar el modal y actualizar la lista
+      // Cerrar el modal y limpiar formulario
       setIsCreateModalOpen(false);
-      await fetchClientes();
-      
-      // Limpiar el formulario
       setFormData({
         nic: "",
         tipo_cliente: "Residencial",
@@ -422,11 +455,12 @@ const Clientes = () => {
         network_type: editFormData.tipo_red
       };
 
-      const response = await fetch(`http://localhost:3000/api/clients/${selectedCliente.client_id}`, {
+      const response = await fetch(getApiUrl(`/api/clients/${selectedCliente.client_id}`), {
         method: "PUT",
         headers: {
+          "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Accept": "application/json"
         },
         body: JSON.stringify(updateData)
       });
@@ -437,19 +471,26 @@ const Clientes = () => {
         throw new Error(data.mensaje || "Error al actualizar el cliente");
       }
 
+      // Actualizar el cliente en el estado local dinámicamente
+      const clienteActualizado = data.data || { ...selectedCliente, ...updateData };
+      setClientes(prevClientes => 
+        prevClientes.map(cliente => 
+          cliente.client_id === selectedCliente.client_id 
+            ? clienteActualizado 
+            : cliente
+        )
+      );
+
       // Mostrar mensaje de éxito
       setMensajes([{
         contenido: "Cliente actualizado exitosamente",
         tipo: "success"
       }]);
       
-      // Limpiar mensaje después de 2 segundos
       setTimeout(() => {
         setMensajes([]);
       }, 2000);
 
-      // Actualizar la lista de clientes y cerrar el modal
-      await fetchClientes();
       setIsEditModalOpen(false);
     } catch (error) {
       setError(error.message);
@@ -487,7 +528,10 @@ const Clientes = () => {
           tipo="error"
         />
         <button
-          onClick={() => window.location.reload()}
+          onClick={() => {
+            setError(null);
+            fetchClientes();
+          }}
           className="rounded-lg bg-blue-600 px-6 py-2.5 text-white transition-colors hover:bg-blue-700"
         >
           Reintentar
@@ -540,26 +584,48 @@ const Clientes = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">NIC</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Nombre</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Tipo Cliente</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Ciudad</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Consumo</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Acciones</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">NIC</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Tipo Cliente</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Nombre</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Ciudad</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Departamento</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Dirección</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Consumo</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Tarifa</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Tipo Red</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Estado</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Usuario</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredClientes.map((cliente) => (
-                  <tr key={cliente.client_id} className="border-b border-gray-200">
-                    <td className="px-4 py-3 text-sm text-gray-800">{cliente.nic}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{cliente.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{cliente.client_type}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{cliente.city}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">
-                      {formatNumber(cliente.monthly_consumption_kwh)} kWh/mes
+                  <tr key={cliente.client_id} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.nic}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.client_type}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.name}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.city}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.department}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.address}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {formatNumber(cliente.monthly_consumption_kwh)} kWh
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-800">
-                      <div className="flex gap-2">
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      ${formatNumber(cliente.energy_rate)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.network_type}</td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+                        cliente.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {cliente.is_active ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {cliente.user?.name || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium">
+                      <div className="flex space-x-2">
                         <button
                           onClick={() => handleInfo(cliente)}
                           className="text-blue-600 hover:text-blue-700"
@@ -786,7 +852,7 @@ const Clientes = () => {
         title="Editar Cliente"
       >
         <form onSubmit={handleEditSubmit} className="p-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Columna Izquierda */}
             <div className="space-y-4">
               <div>
@@ -1012,50 +1078,68 @@ const Clientes = () => {
       >
         <div className="p-4">
           <div className="space-y-6">
-            {/* Información del Cliente */}
-            <div>
-              <h3 className="mb-4 text-lg font-semibold text-gray-800">Datos del Cliente</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">NIC</p>
-                  <p className="text-sm text-gray-800">{selectedCliente?.nic}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Tipo de Cliente</p>
-                  <p className="text-sm text-gray-800">{selectedCliente?.client_type}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Nombre</p>
-                  <p className="text-sm text-gray-800">{selectedCliente?.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Departamento</p>
-                  <p className="text-sm text-gray-800">{selectedCliente?.department}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Ciudad</p>
-                  <p className="text-sm text-gray-800">{selectedCliente?.city}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Dirección</p>
-                  <p className="text-sm text-gray-800">{selectedCliente?.address}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Consumo Mensual</p>
-                  <p className="text-sm text-gray-800">{formatNumber(selectedCliente?.monthly_consumption_kwh)} kWh/mes</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Tarifa de Energía</p>
-                  <p className="text-sm text-gray-800">{formatNumber(selectedCliente?.energy_rate)} COP/kWh</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Fecha de Creación</p>
-                  <p className="text-sm text-gray-800">
-                    {new Date(selectedCliente?.created_at).toLocaleDateString()}
-                  </p>
+              {/* Información del Cliente */}
+              <div>
+                <h3 className="mb-4 text-lg font-semibold text-gray-800">Datos del Cliente</h3>
+                {/* Grid de dos columnas */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Columna izquierda */}
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">NIC</p>
+                      <p className="text-sm text-gray-800">{selectedCliente?.nic}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Tipo de Cliente</p>
+                      <p className="text-sm text-gray-800">{selectedCliente?.client_type}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Nombre</p>
+                      <p className="text-sm text-gray-800">{selectedCliente?.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Departamento</p>
+                      <p className="text-sm text-gray-800">{selectedCliente?.department}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Ciudad</p>
+                      <p className="text-sm text-gray-800">{selectedCliente?.city}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Dirección</p>
+                      <p className="text-sm text-gray-800">{selectedCliente?.address}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Columna derecha */}
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Consumo Mensual</p>
+                      <p className="text-sm text-gray-800">{formatNumber(selectedCliente?.monthly_consumption_kwh)} kWh</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Tarifa de Energía</p>
+                      <p className="text-sm text-gray-800">${formatNumber(selectedCliente?.energy_rate)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Tipo de Red</p>
+                      <p className="text-sm text-gray-800">{selectedCliente?.network_type}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Estado</p>
+                      <p className="text-sm text-gray-800">{selectedCliente?.is_active ? 'Activo' : 'Inactivo'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Usuario Asignado</p>
+                      <p className="text-sm text-gray-800">{selectedCliente?.user?.name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Fecha de Creación</p>
+                      <p className="text-sm text-gray-800">{new Date(selectedCliente?.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
             <div className="flex justify-end">
               <button
@@ -1093,4 +1177,4 @@ const Clientes = () => {
   );
 };
 
-export default Clientes; 
+export default Clientes;

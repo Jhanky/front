@@ -3,11 +3,25 @@ import Card from "components/card";
 import { MdAdd, MdEdit, MdDelete, MdDownload } from "react-icons/md";
 import Modal from "components/modal";
 
+
+const formatCurrency = (value) => {
+  if (value === undefined || value === null || value === "") return "";
+  const num = Number(value.toString().replace(/[^\d]/g, ""));
+  if (isNaN(num) || num === 0) return "";
+  return `$ ${num.toLocaleString("es-CO")}`;
+};
+
+const parseCurrency = (value) => {
+  if (!value) return 0;
+  return Number(value.toString().replace(/[^\d]/g, ""));
+};
+
 const Propuestas = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedPropuesta, setSelectedPropuesta] = useState(null);
+  const [formData, setFormData] = useState({ precio: "" });
 
   const handleCreate = () => {
     setIsCreateModalOpen(true);
@@ -106,7 +120,29 @@ const Propuestas = () => {
         title="Nueva Propuesta"
       >
         <div className="p-4">
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={e => {
+            e.preventDefault();
+            // Aquí se envía el valor numérico limpio:
+            const precioNumerico = parseCurrency(formData.precio);
+            // ...enviar precioNumerico al servicio junto con los demás datos
+          }}>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Precio Total
+              </label>
+              <input
+                type="text"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                placeholder="$ 0"
+                value={formatCurrency(formData.precio)}
+                onChange={e => {
+                  // Permitir solo números y formatear visualmente
+                  setFormData({ ...formData, precio: e.target.value });
+                }}
+                inputMode="numeric"
+                autoComplete="off"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Cliente
@@ -203,7 +239,28 @@ const Propuestas = () => {
         title="Editar Propuesta"
       >
         <div className="p-4">
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={e => {
+            e.preventDefault();
+            // Aquí se envía el valor numérico limpio:
+            const precioNumerico = parseCurrency(formData.precio);
+            // ...enviar precioNumerico al servicio junto con los demás datos
+          }}>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Precio Total
+              </label>
+              <input
+                type="text"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                placeholder="$ 0"
+                value={formatCurrency(formData.precio)}
+                onChange={e => {
+                  setFormData({ ...formData, precio: e.target.value });
+                }}
+                inputMode="numeric"
+                autoComplete="off"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Cliente

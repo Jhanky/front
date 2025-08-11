@@ -1,3 +1,4 @@
+import { getApiUrl, getTechnicalSheetUrl } from '../../../config/api';
 import React, { useState, useEffect } from "react";
 import Card from "components/card";
 import { MdAdd, MdEdit, MdDelete, MdVisibility, MdCloudUpload, MdSearch, MdArrowUpward, MdArrowDownward } from "react-icons/md";
@@ -52,15 +53,15 @@ const Inversores = () => {
         sort: sortField,
         order: sortOrder
       });
-      const response = await fetch(`http://localhost:3000/api/inverters?${queryParams}`, {
+      const response = await fetch(getApiUrl(`/api/inverters?${queryParams}`), {
         headers: {
           Authorization: `Bearer ${user.token}`
         }
       });
-      if (!response.ok) throw new Error("Error al cargar los inversores");
-      const data = await response.json();
-      setInversores(Array.isArray(data) ? data : []);
-      setTotalPages(1);
+  if (!response.ok) throw new Error("Error al cargar los inversores");
+  const data = await response.json();
+  setInversores(Array.isArray(data.data?.data) ? data.data.data : []);
+  setTotalPages(data.data?.last_page || 1);
     } catch (err) {
       setError("Error al cargar los inversores: " + err.message);
       setInversores([]);
@@ -70,9 +71,7 @@ const Inversores = () => {
   };
 
   const getFichaTecnicaUrl = (url) => {
-    if (!url) return null;
-    if (url.startsWith('http')) return url;
-    return `http://localhost:3000${url}`;
+  return getTechnicalSheetUrl(url);
   };
 
   const handleSearch = (e) => {
@@ -153,32 +152,56 @@ const Inversores = () => {
     setLoading(true);
     setError("");
     setMensajes([]);
+
     try {
       if (!formData.brand || !formData.model || !formData.power || !formData.grid_type || !formData.price) {
         throw new Error("Todos los campos son obligatorios excepto la ficha técnica y system type");
       }
-      const formDataToSend = new FormData();
-      formDataToSend.append("brand", formData.brand.trim());
-      formDataToSend.append("model", formData.model.trim());
-      formDataToSend.append("power", Number(formData.power));
-      formDataToSend.append("grid_type", formData.grid_type);
-      formDataToSend.append("price", formData.price);
-      if (formData.system_type) formDataToSend.append("system_type", formData.system_type);
-      if (formData.technical_sheet) formDataToSend.append("technical_sheet", formData.technical_sheet);
       const url = isEditModalOpen
-        ? `http://localhost:3000/api/inverters/${selectedInversor.inverter_id}`
-        : "http://localhost:3000/api/inverters";
-      
-      const response = await fetch(url, {
-        method: isEditModalOpen ? "PUT" : "POST",
-        headers: {
-          Authorization: `Bearer ${user.token}`
-        },
-        body: formDataToSend
-      });
+        ? getApiUrl(`/api/inverters/${selectedInversor.inverter_id}`)
+        : getApiUrl('/api/inverters');
 
-      const data = await response.json();
-      
+      let response, data;
+      if (formData.technical_sheet) {
+        // Si hay archivo, usar FormData
+        const formDataToSend = new FormData();
+        formDataToSend.append("brand", formData.brand.trim());
+        formDataToSend.append("model", formData.model.trim());
+        formDataToSend.append("power", Number(formData.power));
+        formDataToSend.append("grid_type", formData.grid_type);
+        formDataToSend.append("price", formData.price);
+        if (formData.system_type) formDataToSend.append("system_type", formData.system_type);
+        formDataToSend.append("technical_sheet", formData.technical_sheet);
+        response = await fetch(url, {
+          method: isEditModalOpen ? "PUT" : "POST",
+          headers: {
+            Authorization: `Bearer ${user.token}`
+          },
+          body: formDataToSend
+        });
+      } else {
+        // Si no hay archivo, enviar JSON (PUT)
+        const inverterData = {
+          brand: formData.brand.trim(),
+          model: formData.model.trim(),
+          power: Number(formData.power),
+          grid_type: formData.grid_type,
+          price: formData.price,
+        };
+        if (formData.system_type) inverterData.system_type = formData.system_type;
+        if (isEditModalOpen && selectedInversor?.technical_sheet_url !== undefined) {
+          inverterData.technical_sheet_url = selectedInversor.technical_sheet_url;
+        }
+        response = await fetch(url, {
+          method: isEditModalOpen ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${user.token}`
+          },
+          body: JSON.stringify(inverterData)
+        });
+      }
+      data = await response.json();
       if (!response.ok) {
         throw new Error(data.mensaje || (isEditModalOpen ? "Error al actualizar el inversor" : "Error al registrar el inversor"));
       }
@@ -225,7 +248,7 @@ const Inversores = () => {
     setError("");
     setMensajes([]);
     try {
-      const response = await fetch(`http://localhost:3000/api/inverters/${selectedInversor.inverter_id}`, {
+      const response = await fetch(getApiUrl(`/api/inverters/${selectedInversor.inverter_id}`), {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${user.token}`
@@ -268,7 +291,7 @@ const Inversores = () => {
     setSelectedInversor(inverter);
     setIsInfoModalOpen(true);
     try {
-      const response = await fetch(`http://localhost:3000/api/inverters/${inverter.inverter_id}`, {
+      const response = await fetch(getApiUrl(`/api/inverters/${inverter.inverter_id}`), {
         headers: {
           Authorization: `Bearer ${user.token}`
         }
@@ -735,7 +758,7 @@ const Inversores = () => {
                     <p className="text-sm font-medium text-gray-600">Ficha Técnica</p>
                     {inverterInfo.technical_sheet_url ? (
                       <a
-                        href={`http://localhost:3000${inverterInfo.technical_sheet_url}`}
+                        href={getTechnicalSheetUrl(inverterInfo.technical_sheet_url)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-700 underline"

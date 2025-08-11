@@ -8,6 +8,7 @@ import Loading from "components/loading";
 import { useNavigate } from "react-router-dom";
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { getApiUrl } from '../../../config/api';
 
 // Nuevo componente para el modal de edición
 function EditCotizacionModal({
@@ -335,7 +336,7 @@ const Cotizaciones = () => {
   }, []);
 
   // Función para cargar cotizaciones
-  const fetchCotizaciones = async () => {
+  const fetchCotizaciones = async (page = 1) => {
     try {
       setLoading(true);
       const token = user?.token;
@@ -344,7 +345,7 @@ const Cotizaciones = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch("http://localhost:3000/api/quotations", {
+      const response = await fetch(getApiUrl(`/api/quotations?page=${page}`), {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
@@ -359,7 +360,15 @@ const Cotizaciones = () => {
       }
 
       const data = await response.json();
-      setCotizaciones(Array.isArray(data) ? data : []);
+      
+      // Adaptar a la nueva estructura con paginación
+      setCotizaciones(Array.isArray(data.data) ? data.data : []);
+      
+      // Si necesitas manejar paginación, puedes agregar estos estados:
+      // setCurrentPage(data.current_page);
+      // setTotalPages(data.last_page);
+      // setTotal(data.total);
+      
       setError(null);
     } catch (error) {
       setError(error.message);
@@ -375,14 +384,14 @@ const Cotizaciones = () => {
   }, []);
 
   // Filtrar cotizaciones basado en la búsqueda
-  const filteredCotizaciones = cotizaciones.filter((cotizacion) => {
+  const filteredCotizaciones = cotizaciones.filter(cotizacion => {
     const searchLower = search.toLowerCase();
     return (
       cotizacion.project_name?.toLowerCase().includes(searchLower) ||
-      cotizacion.id?.toString().includes(searchLower) ||
       cotizacion.client?.name?.toLowerCase().includes(searchLower) ||
-      cotizacion.system_type?.toLowerCase().includes(searchLower) ||
-      cotizacion.user?.toLowerCase().includes(searchLower)
+      cotizacion.client?.city?.toLowerCase().includes(searchLower) ||
+      cotizacion.user?.name?.toLowerCase().includes(searchLower) ||
+      cotizacion.system_type?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -407,10 +416,7 @@ const Cotizaciones = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      console.log("Eliminando cotización:", selectedCotizacion.id);
-      console.log("Token:", token);
-
-      const response = await fetch(`http://localhost:3000/api/quotations/${selectedCotizacion.id}`, {
+      const response = await fetch(getApiUrl(`/api/quotations/${selectedCotizacion.quotation_id}`), {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -420,21 +426,26 @@ const Cotizaciones = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Error del servidor:", errorData);
         throw new Error(errorData.message || "Error al eliminar la cotización");
       }
 
+      // Actualizar estado local dinámicamente
+      setCotizaciones(prev => prev.filter(c => c.quotation_id !== selectedCotizacion.quotation_id));
+      
       // Cerrar el modal
       setIsDeleteModalOpen(false);
-      
-      // Recargar la lista de cotizaciones
-      await fetchCotizaciones();
       
       // Mostrar mensaje de éxito
       setMensajes([{
         contenido: "Cotización eliminada exitosamente",
         tipo: "success"
       }]);
+      
+      // Limpiar mensaje después de 2 segundos
+      setTimeout(() => {
+        setMensajes([]);
+      }, 2000);
+      
     } catch (error) {
       console.error("Error al eliminar la cotización:", error);
       setError(error.message);
@@ -442,6 +453,12 @@ const Cotizaciones = () => {
         contenido: error.message,
         tipo: "error"
       }]);
+      
+      // Limpiar mensaje después de 2 segundos
+      setTimeout(() => {
+        setMensajes([]);
+        setError(null);
+      }, 2000);
     }
   };
 
@@ -495,11 +512,11 @@ const Cotizaciones = () => {
   };
 
   const formatNumber = (number) => {
+    if (!number) return '0';
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'COP',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      minimumFractionDigits: 0
     }).format(number);
   };
 
@@ -1156,7 +1173,7 @@ const Cotizaciones = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch(`http://localhost:3000/api/quotations/${cotizacion.id}`, {
+      const response = await fetch(getApiUrl(`/api/quotations/${cotizacion.quotation_id}`), {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
@@ -1291,7 +1308,7 @@ const Cotizaciones = () => {
         ]
       };
       // Hacer la petición PUT
-      const response = await fetch(`http://localhost:3000/api/quotations/${selectedCotizacion.id}`, {
+      const response = await fetch(getApiUrl(`/api/quotations/${selectedCotizacion.quotation_id}`), {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -1422,7 +1439,7 @@ const Cotizaciones = () => {
       const body = { status_id: parseInt(newStatusId) };
       const token = user?.token;
       console.log('PUT /api/quotations/' + cotizacion.id, body, token);
-      const res = await fetch(`http://localhost:3000/api/quotations/${cotizacion.id}`, {
+      const res = await fetch(getApiUrl(`/api/quotations/${cotizacion.quotation_id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(body)
@@ -1562,27 +1579,27 @@ const Cotizaciones = () => {
                   </tr>
                 ) : (
                   filteredCotizaciones.map((cotizacion) => (
-                    <tr key={cotizacion.id} className="border-b border-gray-200">
-                      <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.id}</td>
+                    <tr key={cotizacion.quotation_id} className="border-b border-gray-200">
+                      <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.quotation_id}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.project_name}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.system_type}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.power} kW</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{formatNumber(cotizacion.value)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.power_kwp} kWp</td>
+                      <td className="px-4 py-3 text-sm text-gray-800">{formatNumber(cotizacion.total_value)}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.client?.city}</td>
                       <td className="px-4 py-3 text-sm">
                         <select
-                          className={`rounded-full px-2 py-1 text-xs font-semibold border focus:outline-none ${getEstadoColorClass(cotizacion.status?.id || cotizacion.status_id)}`}
-                          value={cotizacion.status?.id || cotizacion.status_id || ""}
+                          className={`rounded-full px-2 py-1 text-xs font-semibold border focus:outline-none ${getEstadoColorClass(cotizacion.status?.status_id || cotizacion.status_id)}`}
+                          value={cotizacion.status?.status_id || cotizacion.status_id || ""}
                           onChange={e => handleEstadoChange(cotizacion, e.target.value)}
-                          disabled={(cotizacion.status?.id || cotizacion.status_id) === 3}
+                          disabled={(cotizacion.status?.status_id || cotizacion.status_id) === 3}
                         >
                           <option value="">Seleccione</option>
                           {statuses.map(s => (
-                            <option key={s.status_id} value={s.status_id}>{s.status_name}</option>
+                            <option key={s.status_id} value={s.status_id}>{s.name}</option>
                           ))}
                         </select>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.user}</td>
+                      <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.user?.name}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">
                         <div className="flex gap-2">
                           <button
@@ -2152,249 +2169,220 @@ const Cotizaciones = () => {
       </Modal>
 
       {/* Modal de Detalles */}
-      <Modal
-        isOpen={isDetailsModalOpen}
-        onClose={() => setIsDetailsModalOpen(false)}
-        title="Detalles de la Cotización"
-        size="max-w-[90%]"
-      >
-        <div className="p-6">
-          {loadingDetalles ? (
-            <div className="flex h-96 items-center justify-center">
-              <Loading />
+      {isDetailsModalOpen && cotizacionDetalles && (
+        <Modal isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)}>
+          <div className="p-6">
+            <h2 className="text-xl font-bold mb-4">Detalles de la Cotización</h2>
+            
+            {/* Información básica */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-2">Información General</h3>
+              <p><strong>Proyecto:</strong> {cotizacionDetalles.project_name}</p>
+              <p><strong>Cliente:</strong> {cotizacionDetalles.client?.name}</p>
+              <p><strong>Tipo de Sistema:</strong> {cotizacionDetalles.system_type}</p>
+              <p><strong>Potencia:</strong> {cotizacionDetalles.power_kwp} kWp</p>
+              <p><strong>Valor Total:</strong> {formatNumber(cotizacionDetalles.total_value)}</p>
             </div>
-          ) : cotizacionDetalles ? (
-            <div className="space-y-8">
-              {/* Encabezado */}
-              <div className="flex items-center justify-between border-b border-gray-200 pb-4">
+
+            {/* Productos utilizados */}
+            {cotizacionDetalles.used_products && cotizacionDetalles.used_products.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center mb-4">
+                  <div className="w-1 h-6 bg-blue-500 mr-3"></div>
+                  <h3 className="text-xl font-bold text-gray-800">Productos Utilizados</h3>
+                </div>
+                <div className="overflow-x-auto shadow-lg rounded-lg border border-gray-200">
+                  <table className="w-full bg-white">
+                    <thead>
+                      <tr className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                        <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">Producto</th>
+                        <th className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider">Cantidad</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Precio Unit.</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Subtotal</th>
+                        <th className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider">Utilidad %</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Utilidad</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {cotizacionDetalles.used_products.map((product, index) => {
+                        const productTypeInfo = {
+                          'panel': { name: 'Panel Solar', icon: '☀️', color: 'text-yellow-600 bg-yellow-50' },
+                          'inverter': { name: 'Inversor', icon: '⚡', color: 'text-blue-600 bg-blue-50' },
+                          'battery': { name: 'Batería', icon: '🔋', color: 'text-green-600 bg-green-50' }
+                        };
+                        const typeInfo = productTypeInfo[product.product_type] || { name: product.product_type, icon: '📦', color: 'text-gray-600 bg-gray-50' };
+                        
+                        return (
+                          <tr key={product.used_product_id || index} className="hover:bg-gray-50 transition-colors duration-200">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center">
+                                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm mr-3 ${typeInfo.color}`}>
+                                  {typeInfo.icon}
+                                </span>
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{typeInfo.name}</div>
+                                  <div className="text-xs text-gray-500">ID: {product.product_id}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                                {product.quantity}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right font-mono text-sm">
+                              <span className="text-gray-900">{formatNumber(product.unit_price)}</span>
+                            </td>
+                            <td className="px-6 py-4 text-right font-mono text-sm">
+                              <span className="text-gray-900">{formatNumber(product.partial_value)}</span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                {(parseFloat(product.profit_percentage) * 100).toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right font-mono text-sm">
+                              <span className="text-green-600 font-medium">{formatNumber(product.profit)}</span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <span className="text-lg font-bold text-gray-900">{formatNumber(product.total_value)}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-gray-50">
+                        <td colSpan="6" className="px-6 py-4 text-right font-semibold text-gray-700">Total Productos:</td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-xl font-bold text-blue-600">
+                            ${formatNumber(cotizacionDetalles.used_products.reduce((sum, p) => sum + parseFloat(p.total_value), 0))}
+                          </span>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Items adicionales */}
+            {cotizacionDetalles.items && cotizacionDetalles.items.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center mb-4">
+                  <div className="w-1 h-6 bg-green-500 mr-3"></div>
+                  <h3 className="text-xl font-bold text-gray-800">Items Adicionales</h3>
+                </div>
+                <div className="overflow-x-auto shadow-lg rounded-lg border border-gray-200">
+                  <table className="w-full bg-white">
+                    <thead>
+                      <tr className="bg-gradient-to-r from-green-600 to-green-700 text-white">
+                        <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">Descripción</th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">Tipo</th>
+                        <th className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider">Cantidad</th>
+                        <th className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider">Unidad</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Precio Unit.</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Subtotal</th>
+                        <th className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider">Utilidad %</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Utilidad</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {cotizacionDetalles.items.map((item, index) => {
+                        const itemTypeInfo = {
+                          'conductor_fotovoltaico': { name: 'Conductor Fotovoltaico', icon: '🔌', color: 'text-orange-600 bg-orange-50' },
+                          'material_electrico': { name: 'Material Eléctrico', icon: '⚡', color: 'text-yellow-600 bg-yellow-50' },
+                          'estructura': { name: 'Estructura de Soporte', icon: '🏗️', color: 'text-gray-600 bg-gray-50' },
+                          'mano_obra': { name: 'Mano de Obra', icon: '👷', color: 'text-blue-600 bg-blue-50' },
+                          'tramites': { name: 'Trámites', icon: '📋', color: 'text-purple-600 bg-purple-50' },
+                          'sobreestructura': { name: 'Sobreestructura', icon: '🏢', color: 'text-indigo-600 bg-indigo-50' }
+                        };
+                        const typeInfo = itemTypeInfo[item.tipo_item] || { name: item.tipo_item, icon: '📦', color: 'text-gray-600 bg-gray-50' };
+                        
+                        return (
+                          <tr key={item.id_item || index} className="hover:bg-gray-50 transition-colors duration-200">
+                            <td className="px-6 py-4">
+                              <div className="text-sm font-medium text-gray-900">{item.descripcion}</div>
+                              <div className="text-xs text-gray-500">ID: {item.id_item}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center">
+                                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm mr-2 ${typeInfo.color}`}>
+                                  {typeInfo.icon}
+                                </span>
+                                <span className="text-sm font-medium text-gray-700">{typeInfo.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                                {item.cantidad}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {item.unidad}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right font-mono text-sm">
+                              <span className="text-gray-900">{formatNumber(item.precio_unitario)}</span>
+                            </td>
+                            <td className="px-6 py-4 text-right font-mono text-sm">
+                              <span className="text-gray-900">{formatNumber(item.valor_parcial)}</span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                {(parseFloat(item.porcentaje_ganancia) * 100).toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right font-mono text-sm">
+                              <span className="text-green-600 font-medium">{formatNumber(item.ganancia)}</span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <span className="text-lg font-bold text-gray-900">{formatNumber(item.valor_total_item)}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-gray-50">
+                        <td colSpan="8" className="px-6 py-4 text-right font-semibold text-gray-700">Total Items:</td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-xl font-bold text-green-600">
+                            ${formatNumber(cotizacionDetalles.items.reduce((sum, i) => sum + parseFloat(i.valor_total_item), 0))}
+                          </span>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Resumen total */}
+            <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-gray-200">
+              <div className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-800">
-                    {cotizacionDetalles.project_name}
-                  </h1>
-                  <p className="text-gray-600">
-                    Cotización #{cotizacionDetalles.quotation_id} - Creada el {formatDate(cotizacionDetalles.creation_date)}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Vendedor: {cotizacionDetalles.User?.name}
-                  </p>
+                  <h4 className="text-lg font-semibold text-gray-800">Valor Total de la Cotización</h4>
+                  <p className="text-sm text-gray-600">Incluye productos e items adicionales</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-600">Valor Total</p>
-                  <p className="text-2xl font-bold text-gray-800">
-                    {formatNumber(cotizacionDetalles.total_value)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Información del Cliente */}
-              <div className="rounded-lg border border-gray-200 bg-white p-6">
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">Información del Cliente</h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <p className="text-sm text-gray-600">NIC</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.nic}</p>
+                  <div className="text-3xl font-bold text-blue-600">
+                    ${formatNumber(cotizacionDetalles.total_value || 0)}
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Nombre</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Tipo de Cliente</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.client_type}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Ubicación</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.city}, {cotizacionDetalles.Client?.department}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Dirección</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.address}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Tipo de Red</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.network_type}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Consumo Mensual</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.monthly_consumption_kwh} kWh</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Tarifa Energía</p>
-                    <p className="font-medium">${cotizacionDetalles.Client?.energy_rate}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Información del Proyecto */}
-              <div className="rounded-lg border border-gray-200 bg-white p-6">
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">Información del Proyecto</h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <p className="text-sm text-gray-600">Tipo de Sistema</p>
-                    <p className="font-medium">{cotizacionDetalles.system_type}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Potencia (kWp)</p>
-                    <p className="font-medium">
-                      {Number(cotizacionDetalles.power_kwp) % 1 === 0 
-                        ? Math.round(cotizacionDetalles.power_kwp)
-                        : Number(cotizacionDetalles.power_kwp).toFixed(1).replace('.', ',')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Número de Paneles</p>
-                    <p className="font-medium">{cotizacionDetalles.panel_count}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Requiere Financiamiento</p>
-                    <p className="font-medium">{cotizacionDetalles.requires_financing ? 'Sí' : 'No'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Productos */}
-              <div className="rounded-lg border border-gray-200 bg-white p-6">
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">Información de Equipos</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Tipo</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Marca</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Modelo</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Potencia</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Cantidad</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Precio Unitario</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Ficha Técnica</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cotizacionDetalles.products.map((producto) => (
-                        <tr key={producto.id} className="border-b border-gray-200">
-                          <td className="px-4 py-2 text-sm">
-                            {producto.type === 'Monocristalino' ? 'Panel' : 
-                             producto.type === 'inverter' ? 'Inversor' : 
-                             producto.type === 'bateria' ? 'Batería' : producto.type}
-                          </td>
-                          <td className="px-4 py-2 text-sm">{producto.brand}</td>
-                          <td className="px-4 py-2 text-sm">{producto.model}</td>
-                          <td className="px-4 py-2 text-sm">
-                            {Number(producto.power) % 1 === 0 
-                              ? Math.round(producto.power)
-                              : Number(producto.power).toFixed(1).replace('.', ',')} {producto.type === 'inverter' ? 'kW' : 'W'}
-                          </td>
-                          <td className="px-4 py-2 text-sm">
-                            {Number(producto.quantity) % 1 === 0 
-                              ? Math.round(producto.quantity)
-                              : Number(producto.quantity).toFixed(1).replace('.', ',')}
-                          </td>
-                          <td className="px-4 py-2 text-sm">{formatNumber(producto.unit_price)}</td>
-                          <td className="px-4 py-2 text-sm">
-                            {producto.technical_sheet_url ? (
-                              <a
-                                href={`http://localhost:3000${producto.technical_sheet_url}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  window.open(`http://localhost:3000${producto.technical_sheet_url}`, '_blank');
-                                }}
-                              >
-                                Ver ficha
-                              </a>
-                            ) : (
-                              <span className="text-gray-400">No disponible</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Items Adicionales */}
-              <div className="rounded-lg border border-gray-200 bg-white p-6">
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">Items Adicionales</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Descripción</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Tipo</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Cantidad</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Unidad</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Precio Unitario</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Valor Parcial</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Ganancia</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cotizacionDetalles.quotation_items.map((item) => (
-                        <tr key={item.quotation_item_id} className="border-b border-gray-200">
-                          <td className="px-4 py-2 text-sm">{item.description}</td>
-                          <td className="px-4 py-2 text-sm">{item.item_type}</td>
-                          <td className="px-4 py-2 text-sm">{item.quantity}</td>
-                          <td className="px-4 py-2 text-sm">{item.unit}</td>
-                          <td className="px-4 py-2 text-sm">{formatNumber(item.unit_price)}</td>
-                          <td className="px-4 py-2 text-sm">{formatNumber(item.partial_value)}</td>
-                          <td className="px-4 py-2 text-sm">{formatNumber(item.profit)}</td>
-                          <td className="px-4 py-2 text-sm">{formatNumber(item.total_value)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Resumen de Costos */}
-              <div className="rounded-lg border border-gray-200 bg-white p-6">
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">Resumen de Costos</h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  <div>
-                    <p className="text-sm text-gray-600">Subtotal</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.subtotal)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Utilidad</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.profit)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">IVA Utilidad</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.profit_iva)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Gestión Comercial</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.commercial_management)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Administración</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.administration)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Imprevistos</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.contingency)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Retenciones</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.withholdings)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Total</p>
-                    <p className="font-bold text-lg">{formatNumber(cotizacionDetalles.total_value)}</p>
+                  <div className="text-sm text-gray-500">
+                    Potencia: {cotizacionDetalles.power_kwp || 0} kWp
                   </div>
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="text-center text-gray-500">No se encontraron detalles de la cotización.</div>
-          )}
-        </div>
-      </Modal>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
 
-export default Cotizaciones; 
+export default Cotizaciones;

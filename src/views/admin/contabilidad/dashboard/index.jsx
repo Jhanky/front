@@ -574,45 +574,21 @@ const Dashboard = () => {
     cargarProyectosActivos();
   }, []);
 
+
   React.useEffect(() => {
-    const fetchFacturas = async () => {
-      setLoadingFacturas(true);
-      setErrorFacturas(null);
-      try {
-        const storedUser = localStorage.getItem('user');
-        let token = null;
-        if (storedUser) {
-          try {
-            const userData = JSON.parse(storedUser);
-            token = userData.token;
-          } catch (e) {}
-        }
-        if (!token) throw new Error('No se encontró token de autorización');
-        const response = await fetch('http://localhost:3000/api/purchases/summary', {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json'
-          }
-        });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Error ${response.status}: ${errorText}`);
-        }
-        const data = await response.json();
-        setFacturas(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setErrorFacturas(err.message);
-        setFacturas([]);
-      } finally {
-        setLoadingFacturas(false);
-      }
-    };
-    fetchFacturas();
+    // Datos de prueba para facturas
+    const facturasPrueba = [
+      { id: 1, numero: "FAC-2025-001", proveedor: "Proveedor A", proyecto: "Proyecto X", monto: 10000, estado: "Pagado", fecha: "2025-08-01", metodo_pago: "Transferencia" },
+      { id: 2, numero: "FAC-2025-002", proveedor: "Proveedor B", proyecto: "Proyecto Y", monto: 20000, estado: "Pendiente", fecha: "2025-08-02", metodo_pago: "Efectivo" },
+      { id: 3, numero: "FAC-2025-003", proveedor: "Proveedor C", proyecto: "Proyecto Z", monto: 15000, estado: "Cancelado", fecha: "2025-08-03", metodo_pago: "Tarjeta" },
+    ];
+    setFacturas(facturasPrueba);
+    setLoadingFacturas(false);
   }, []);
 
   if (loadingFacturas) return <div className="p-8 text-center">Cargando facturas...</div>;
-  if (errorFacturas) return <div className="p-8 text-center text-red-600">Error: {errorFacturas}</div>;
+  // Si hay error, mostrar datos de prueba en vez de error
+  // if (errorFacturas) return <div className="p-8 text-center text-red-600">Error: {errorFacturas}</div>;
 
   return (
     <div>

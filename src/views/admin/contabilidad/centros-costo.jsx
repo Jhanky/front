@@ -3,6 +3,8 @@ import Card from "components/card";
 import { MdAdd, MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import Modal from "components/modal";
 import { useAuth } from "context/AuthContext";
+import { getApiUrl, API_CONFIG } from "config/api";
+import Loading from "components/loading";
 
 const CentrosCosto = () => {
   const { user } = useAuth();
@@ -25,6 +27,9 @@ const CentrosCosto = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: "", type: "" });
 
+  // URL base dinámica
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://www.api.energy4cero.com/public';
+
   useEffect(() => {
     fetchCentrosCosto();
   }, []);
@@ -39,21 +44,43 @@ const CentrosCosto = () => {
   const fetchCentrosCosto = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:3000/api/cost-centers", {
+      
+      // Obtener el token del localStorage
+      const storedUser = localStorage.getItem('user');
+      let token = null;
+      
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          token = userData.token;
+        } catch (error) {
+          console.error('Error al parsear datos de usuario:', error);
+        }
+      }
+      
+      if (!token) {
+        throw new Error('No se encontró token de autorización');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/cost-centers`, {
         method: "GET",
         headers: {
-          "Authorization": `Bearer ${user.token}`,
-          "Content-Type": "application/json"
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         }
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
         throw new Error("Error al cargar los centros de costo");
       }
 
       const data = await response.json();
       setCentrosCosto(data);
     } catch (error) {
+      console.error('Error al obtener centros de costo:', error);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -114,18 +141,35 @@ const CentrosCosto = () => {
         throw new Error("Por favor complete los campos obligatorios: Código y Nombre del Centro de Costo");
       }
 
-      // Aquí se integrarán los endpoints cuando me los proporciones
+      // Obtener el token del localStorage
+      const storedUser = localStorage.getItem('user');
+      let token = null;
+      
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          token = userData.token;
+        } catch (error) {
+          console.error('Error al parsear datos de usuario:', error);
+        }
+      }
+      
+      if (!token) {
+        throw new Error('No se encontró token de autorización');
+      }
+
       const url = isEditMode 
-        ? `http://localhost:3000/api/cost-centers/${selectedCentroCosto.id}`
-        : "http://localhost:3000/api/cost-centers";
+        ? `${API_BASE_URL}/api/cost-centers/${selectedCentroCosto.id}`
+        : `${API_BASE_URL}/api/cost-centers`;
       
       const method = isEditMode ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method: method,
         headers: {
-          "Authorization": `Bearer ${user.token}`,
-          "Content-Type": "application/json"
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         },
         body: JSON.stringify(formData)
       });
@@ -135,21 +179,42 @@ const CentrosCosto = () => {
         throw new Error(errorData.message || `Error al ${isEditMode ? 'actualizar' : 'crear'} el centro de costo`);
       }
 
-      // Mostrar mensaje de éxito
-      const successMessage = isEditMode 
-        ? `Centro de costo "${formData.name}" actualizado exitosamente`
-        : `Centro de costo "${formData.name}" creado exitosamente`;
-      showNotification(successMessage, "success");
+      const data = await response.json();
 
-      // Cerrar modal y recargar lista
       if (isEditMode) {
+        // Actualizar el centro de costo en el estado local dinámicamente
+        const centroCostoActualizado = data.data || { ...selectedCentroCosto, ...formData };
+        setCentrosCosto(prevCentros => 
+          prevCentros.map(centro => 
+            centro.id === selectedCentroCosto.id 
+              ? centroCostoActualizado 
+              : centro
+          )
+        );
+        
+        showNotification(`Centro de costo "${formData.name}" actualizado exitosamente`, "success");
         setIsEditModalOpen(false);
       } else {
+        // Agregar el nuevo centro de costo al estado local dinámicamente
+        const nuevoCentroCosto = data.data || { ...formData, id: Date.now() }; // Fallback temporal para ID
+        setCentrosCosto(prevCentros => [nuevoCentroCosto, ...prevCentros]);
+        
+        showNotification(`Centro de costo "${formData.name}" creado exitosamente`, "success");
         setIsCreateModalOpen(false);
       }
+
+      // Limpiar formulario y estado
       setSelectedCentroCosto(null);
       setIsEditMode(false);
-      fetchCentrosCosto();
+      setFormData({
+        code: "",
+        name: "",
+        description: "",
+        status: "activo"
+      });
+      
+      // NO llamar fetchCentrosCosto() aquí - esa es la clave
+      
     } catch (error) {
       setFormError(error.message);
     } finally {
@@ -160,11 +225,30 @@ const CentrosCosto = () => {
   const handleDeleteConfirm = async () => {
     try {
       setFormLoading(true);
-      const response = await fetch(`http://localhost:3000/api/cost-centers/${selectedCentroCosto.id}`, {
+      
+      // Obtener el token del localStorage
+      const storedUser = localStorage.getItem('user');
+      let token = null;
+      
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          token = userData.token;
+        } catch (error) {
+          console.error('Error al parsear datos de usuario:', error);
+        }
+      }
+      
+      if (!token) {
+        throw new Error('No se encontró token de autorización');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/cost-centers/${selectedCentroCosto.id}`, {
         method: "DELETE",
         headers: {
-          "Authorization": `Bearer ${user.token}`,
-          "Content-Type": "application/json"
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         }
       });
 
@@ -173,13 +257,19 @@ const CentrosCosto = () => {
         throw new Error(errorData.message || "Error al eliminar el centro de costo");
       }
 
-      // Mostrar mensaje de éxito
+      // Eliminar el centro de costo del estado local dinámicamente
+      setCentrosCosto(prevCentros => 
+        prevCentros.filter(centro => centro.id !== selectedCentroCosto.id)
+      );
+
       showNotification(`Centro de costo "${selectedCentroCosto.name}" eliminado exitosamente`, "success");
 
-      // Cerrar modal y recargar lista
+      // Cerrar modal y limpiar estado
       setIsDeleteModalOpen(false);
       setSelectedCentroCosto(null);
-      fetchCentrosCosto();
+      
+      // NO llamar fetchCentrosCosto() aquí - esa es la clave
+      
     } catch (error) {
       setFormError(error.message);
       // Mantener el modal abierto para mostrar el error
@@ -206,11 +296,7 @@ const CentrosCosto = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Cargando centros de costo...</div>
-      </div>
-    );
+    return <Loading />;
   }
 
   if (error) {
@@ -616,4 +702,4 @@ const CentrosCosto = () => {
   );
 };
 
-export default CentrosCosto; 
+export default CentrosCosto;

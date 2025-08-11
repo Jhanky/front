@@ -1,12 +1,15 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Card from "components/card";
-import { MdOutlineCalendarToday } from "react-icons/md";
+import { MdOutlineCalendarToday, MdAdd, MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+import { getApiUrl, API_CONFIG } from "config/api";
+import { useAuth } from "context/AuthContext";
+import Modal from "components/modal";
+import Loading from "components/loading";
 
 const Facturas = () => {
+  const { user } = useAuth();
   const [facturas, setFacturas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -15,6 +18,24 @@ const Facturas = () => {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedYear, setSelectedYear] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    invoice_number: "",
+    date: "",
+    total_amount: "",
+    payment_method: "",
+    status: "",
+    description: "",
+    supplier_id: "",
+    cost_center_id: "",
+    project_id: ""
+  });
+  const [formError, setFormError] = useState("");
+  const [formLoading, setFormLoading] = useState(false);
+  const [notification, setNotification] = useState({ show: false, message: "", type: "" });
+
   const selectRef = React.useRef(null);
 
   const meses = [
@@ -66,7 +87,7 @@ const Facturas = () => {
           } catch (e) {}
         }
         if (!token) throw new Error('No se encontró token de autorización');
-        const response = await fetch(`${API_BASE_URL}/api/purchases`, {
+        const response = await fetch(getApiUrl('/api/purchases'), {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
@@ -98,7 +119,170 @@ const Facturas = () => {
     setSelectedFactura(null);
   };
 
-  if (loading) return <div className="p-8 text-center">Cargando facturas...</div>;
+  const fetchFacturas = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.PURCHASES), {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${user.token}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Error al cargar las facturas");
+      }
+
+      const data = await response.json();
+      console.log('Datos recibidos de la API:', data);
+      setFacturas(Array.isArray(data) ? data : data.data || []);
+    } catch (error) {
+      console.error('Error al cargar facturas:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showNotification = (message, type = "success") => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => {
+      setNotification({ show: false, message: "", type: "" });
+    }, 3000);
+  };
+
+  const handleCreate = () => {
+    setFormData({
+      invoice_number: "",
+      date: "",
+      total_amount: "",
+      payment_method: "",
+      status: "",
+      description: "",
+      supplier_id: "",
+      cost_center_id: "",
+      project_id: ""
+    });
+    setFormError("");
+    setIsCreateModalOpen(true);
+  };
+
+  const handleEdit = (factura) => {
+    setSelectedFactura(factura);
+    setFormData({
+      invoice_number: factura.invoice_number || "",
+      date: factura.date ? factura.date.split('T')[0] : "",
+      total_amount: factura.total_amount || "",
+      payment_method: factura.payment_method || "",
+      status: factura.status || "",
+      description: factura.description || "",
+      supplier_id: factura.supplier_id || "",
+      cost_center_id: factura.cost_center_id || "",
+      project_id: factura.project_id || ""
+    });
+    setFormError("");
+    setIsEditModalOpen(true);
+  };
+
+  const handleDelete = (factura) => {
+    setSelectedFactura(factura);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    setFormError("");
+    setFormLoading(true);
+
+    try {
+      if (!formData.invoice_number || !formData.date || !formData.total_amount) {
+        throw new Error("Por favor complete los campos obligatorios");
+      }
+
+      const url = selectedFactura 
+        ? getApiUrl(`${API_CONFIG.ENDPOINTS.PURCHASES}/${selectedFactura.id}`)
+        : getApiUrl(API_CONFIG.ENDPOINTS.PURCHASES);
+      
+      const method = selectedFactura ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method: method,
+        headers: {
+          "Authorization": `Bearer ${user.token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error al ${selectedFactura ? 'actualizar' : 'crear'} la factura`);
+      }
+
+      const facturaData = await response.json();
+
+      // Actualización dinámica del estado local
+      if (selectedFactura) {
+        setFacturas(prev => prev.map(factura => 
+          factura.id === selectedFactura.id ? facturaData : factura
+        ));
+      } else {
+        setFacturas(prev => [...prev, facturaData]);
+      }
+
+      const successMessage = selectedFactura 
+        ? `Factura "${formData.invoice_number}" actualizada exitosamente`
+        : `Factura "${formData.invoice_number}" creada exitosamente`;
+      showNotification(successMessage, "success");
+
+      // Cerrar modal
+      if (selectedFactura) {
+        setIsEditModalOpen(false);
+      } else {
+        setIsCreateModalOpen(false);
+      }
+      setSelectedFactura(null);
+    } catch (error) {
+      setFormError(error.message);
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      setFormLoading(true);
+      const response = await fetch(getApiUrl(`${API_CONFIG.ENDPOINTS.PURCHASES}/${selectedFactura.id}`), {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${user.token}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al eliminar la factura");
+      }
+
+      // Actualización dinámica del estado local
+      setFacturas(prev => prev.filter(factura => factura.id !== selectedFactura.id));
+
+      showNotification(`Factura "${selectedFactura.invoice_number}" eliminada exitosamente`, "success");
+
+      setIsDeleteModalOpen(false);
+      setSelectedFactura(null);
+    } catch (error) {
+      setFormError(error.message);
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <Loading />;
+  }
   if (error) return <div className="p-8 text-center text-red-600">Error: {error}</div>;
 
   return (
@@ -167,8 +351,8 @@ const Facturas = () => {
                     <td className="px-4 py-3 text-sm text-gray-800">{factura.date ? new Date(factura.date).toLocaleDateString('es-CO') : ''}</td>
                     <td className="px-4 py-3 text-sm text-gray-800 font-medium">{factura.total_amount ? factura.total_amount.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) : ''}</td>
                     <td className="px-4 py-3 text-sm text-gray-800">{factura.status}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{factura.Supplier?.name || 'N/A'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{factura.Project?.name || 'N/A'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-800">{factura.supplier?.name || 'N/A'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-800">{factura.project?.name || 'N/A'}</td>
                     <td className="px-4 py-3 text-sm text-gray-800">
                       <button onClick={() => handleView(factura)} className="text-blue-600 hover:text-blue-800 underline" title="Ver detalles">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 inline">
@@ -191,51 +375,68 @@ const Facturas = () => {
           <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full p-6 relative">
             <button onClick={closeModal} className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl">&times;</button>
             <h2 className="text-xl font-bold mb-4">Detalles de la Factura</h2>
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-2 gap-6 mb-6">
               <div>
-                <div><span className="font-semibold">Número:</span> {selectedFactura.invoice_number}</div>
-                <div><span className="font-semibold">Fecha:</span> {selectedFactura.date ? new Date(selectedFactura.date).toLocaleDateString('es-CO') : ''}</div>
-                <div><span className="font-semibold">Monto Total:</span> {selectedFactura.total_amount ? selectedFactura.total_amount.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) : ''}</div>
-                <div><span className="font-semibold">Estado:</span> {selectedFactura.status}</div>
-                <div><span className="font-semibold">Método de Pago:</span> {selectedFactura.payment_method || 'N/A'}</div>
-                <div><span className="font-semibold">Descripción:</span> {selectedFactura.description || 'N/A'}</div>
+                <div className="font-semibold text-lg mb-3 text-gray-700">Información de la Factura</div>
+                <div className="space-y-2">
+                  <div><span className="font-semibold">Número:</span> {selectedFactura.invoice_number}</div>
+                  <div><span className="font-semibold">Fecha:</span> {selectedFactura.date ? new Date(selectedFactura.date).toLocaleDateString('es-CO') : ''}</div>
+                  <div><span className="font-semibold">Monto Total:</span> {selectedFactura.total_amount ? selectedFactura.total_amount.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) : ''}</div>
+                  <div><span className="font-semibold">Estado:</span> {selectedFactura.status}</div>
+                  <div><span className="font-semibold">Método de Pago:</span> {selectedFactura.payment_method || 'N/A'}</div>
+                  <div><span className="font-semibold">Descripción:</span> {selectedFactura.description || 'N/A'}</div>
+                </div>
               </div>
               <div>
-                <div className="font-semibold mb-1">Proveedor</div>
-                <div><span className="font-semibold">Nombre:</span> {selectedFactura.Supplier?.name || 'N/A'}</div>
-                <div><span className="font-semibold">NIT:</span> {selectedFactura.Supplier?.tax_id || 'N/A'}</div>
-                <div><span className="font-semibold">Dirección:</span> {selectedFactura.Supplier?.address || 'N/A'}</div>
-                <div><span className="font-semibold">Teléfono:</span> {selectedFactura.Supplier?.phone || 'N/A'}</div>
-                <div><span className="font-semibold">Email:</span> {selectedFactura.Supplier?.email || 'N/A'}</div>
-                <div><span className="font-semibold">Contacto:</span> {selectedFactura.Supplier?.contact_name || 'N/A'}</div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <div className="font-semibold mb-1">Proyecto</div>
-                <div><span className="font-semibold">Código:</span> {selectedFactura.Project?.code || 'N/A'}</div>
-                <div><span className="font-semibold">Nombre:</span> {selectedFactura.Project?.name || 'N/A'}</div>
-                <div><span className="font-semibold">Descripción:</span> {selectedFactura.Project?.description || 'N/A'}</div>
-                <div><span className="font-semibold">Estado:</span> {selectedFactura.Project?.status || 'N/A'}</div>
-              </div>
-              <div>
-                <div className="font-semibold mb-1">Centro de Costos</div>
-                <div><span className="font-semibold">Código:</span> {selectedFactura.CostCenter?.code || 'N/A'}</div>
-                <div><span className="font-semibold">Nombre:</span> {selectedFactura.CostCenter?.name || 'N/A'}</div>
-                <div><span className="font-semibold">Descripción:</span> {selectedFactura.CostCenter?.description || 'N/A'}</div>
-                <div><span className="font-semibold">Estado:</span> {selectedFactura.CostCenter?.status || 'N/A'}</div>
+                <div className="font-semibold text-lg mb-3 text-gray-700">Centro de Costos</div>
+                <div className="space-y-2">
+                  <div><span className="font-semibold">Código:</span> {selectedFactura.cost_center?.code || 'N/A'}</div>
+                  <div><span className="font-semibold">Nombre:</span> {selectedFactura.cost_center?.name || 'N/A'}</div>
+                  <div><span className="font-semibold">Descripción:</span> {selectedFactura.cost_center?.description || 'N/A'}</div>
+                  <div><span className="font-semibold">Estado:</span> {selectedFactura.cost_center?.status || 'N/A'}</div>
+                </div>
               </div>
             </div>
-            <div>
-              <div className="font-semibold mb-1">Usuario Responsable</div>
-              <div><span className="font-semibold">Usuario:</span> {selectedFactura.User?.username || 'N/A'}</div>
-              <div><span className="font-semibold">Rol:</span> {selectedFactura.User?.role || 'N/A'}</div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            
+            <div className="grid grid-cols-2 gap-6 mb-6">
               <div>
-                <div className="font-semibold mb-1">Fechas</div>
-                <div><span className="font-semibold">Creado:</span> {selectedFactura.created_at ? new Date(selectedFactura.created_at).toLocaleDateString('es-CO') : 'N/A'}</div>
-                <div><span className="font-semibold">Actualizado:</span> {selectedFactura.updated_at ? new Date(selectedFactura.updated_at).toLocaleDateString('es-CO') : 'N/A'}</div>
+                <div className="font-semibold text-lg mb-3 text-gray-700">Información del Proveedor</div>
+                <div className="space-y-2">
+                  <div><span className="font-semibold">Nombre:</span> {selectedFactura.supplier?.name || 'N/A'}</div>
+                  <div><span className="font-semibold">NIT:</span> {selectedFactura.supplier?.tax_id || 'N/A'}</div>
+                  <div><span className="font-semibold">Dirección:</span> {selectedFactura.supplier?.address || 'N/A'}</div>
+                  <div><span className="font-semibold">Teléfono:</span> {selectedFactura.supplier?.phone || 'N/A'}</div>
+                  <div><span className="font-semibold">Email:</span> {selectedFactura.supplier?.email || 'N/A'}</div>
+                  <div><span className="font-semibold">Contacto:</span> {selectedFactura.supplier?.contact_name || 'N/A'}</div>
+                </div>
+              </div>
+              <div>
+                <div className="font-semibold text-lg mb-3 text-gray-700">Información del Proyecto</div>
+                <div className="space-y-2">
+                  <div><span className="font-semibold">Código:</span> {selectedFactura.project?.code || 'N/A'}</div>
+                  <div><span className="font-semibold">Nombre:</span> {selectedFactura.project?.name || 'N/A'}</div>
+                  <div><span className="font-semibold">Estado:</span> {selectedFactura.project?.status || 'N/A'}</div>
+                  <div><span className="font-semibold">Fecha de Inicio:</span> {selectedFactura.project?.start_date ? new Date(selectedFactura.project.start_date).toLocaleDateString('es-CO') : 'N/A'}</div>
+                  <div><span className="font-semibold">Fecha de Fin:</span> {selectedFactura.project?.end_date ? new Date(selectedFactura.project.end_date).toLocaleDateString('es-CO') : 'N/A'}</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <div className="font-semibold text-lg mb-3 text-gray-700">Usuario Responsable</div>
+                <div className="space-y-2">
+                  <div><span className="font-semibold">Nombre:</span> {selectedFactura.user?.name || 'N/A'}</div>
+                  <div><span className="font-semibold">Email:</span> {selectedFactura.user?.email || 'N/A'}</div>
+                  <div><span className="font-semibold">Teléfono:</span> {selectedFactura.user?.phone || 'N/A'}</div>
+                </div>
+              </div>
+              <div>
+                <div className="font-semibold text-lg mb-3 text-gray-700">Fechas del Sistema</div>
+                <div className="space-y-2">
+                  <div><span className="font-semibold">Creado:</span> {selectedFactura.created_at ? new Date(selectedFactura.created_at).toLocaleDateString('es-CO') : 'N/A'}</div>
+                  <div><span className="font-semibold">Actualizado:</span> {selectedFactura.updated_at ? new Date(selectedFactura.updated_at).toLocaleDateString('es-CO') : 'N/A'}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -245,4 +446,4 @@ const Facturas = () => {
   );
 };
 
-export default Facturas; 
+export default Facturas;

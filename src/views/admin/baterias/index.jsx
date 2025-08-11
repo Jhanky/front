@@ -1,3 +1,5 @@
+
+import { getApiUrl, getTechnicalSheetUrl } from '../../../config/api';
 import React, { useState, useEffect } from "react";
 import Card from "components/card";
 import { MdAdd, MdEdit, MdDelete, MdVisibility, MdCloudUpload, MdSearch, MdArrowUpward, MdArrowDownward } from "react-icons/md";
@@ -6,6 +8,14 @@ import { useAuth } from "context/AuthContext";
 import Mensaje from "components/mensaje";
 import Loading from "components/loading";
 import Logo from "components/logo";
+
+// Formatea el precio como COP
+function formatPrice(value) {
+  if (value === undefined || value === null || value === "") return "";
+  const num = Number(value.toString().replace(/[^\d]/g, ""));
+  if (isNaN(num) || num === 0) return "";
+  return `$ ${num.toLocaleString("es-CO")}`;
+}
 
 const Baterias = () => {
   const { user } = useAuth();
@@ -52,17 +62,15 @@ const Baterias = () => {
         order: sortOrder
       });
 
-      const response = await fetch(`http://localhost:3000/api/batteries?${queryParams}`, {
+      const response = await fetch(getApiUrl(`/api/batteries?${queryParams}`), {
         headers: {
           Authorization: `Bearer ${user.token}`
         }
       });
-      
       if (!response.ok) throw new Error("Error al cargar las baterías");
-      
       const data = await response.json();
-      setBaterias(data.batteries || []);
-      setTotalPages(data.pagination?.total_pages || 1);
+  setBaterias(Array.isArray(data.data) ? data.data : []);
+      setTotalPages(data.data?.last_page || 1);
     } catch (err) {
       setError("Error al cargar las baterías: " + err.message);
       setBaterias([]);
@@ -72,9 +80,7 @@ const Baterias = () => {
   };
 
   const getFichaTecnicaUrl = (url) => {
-    if (!url) return null;
-    if (url.startsWith('http')) return url;
-    return `http://localhost:3000${url}`;
+  return getTechnicalSheetUrl(url);
   };
 
   const handleSearch = (e) => {
@@ -187,12 +193,14 @@ const Baterias = () => {
         formDataToSend.append("technical_sheet", formData.technical_sheet);
       }
 
-      const url = isEditModalOpen
-        ? `http://localhost:3000/api/batteries/${selectedBateria.battery_id}`
-        : "http://localhost:3000/api/batteries";
-
+      let url = getApiUrl('/api/batteries');
+      let method = "POST";
+      if (isEditModalOpen) {
+        url = getApiUrl(`/api/batteries/${selectedBateria.battery_id}`);
+        formDataToSend.append("_method", "PUT");
+      }
       const response = await fetch(url, {
-        method: isEditModalOpen ? "PUT" : "POST",
+        method,
         headers: {
           Authorization: `Bearer ${user.token}`
         },
@@ -247,12 +255,12 @@ const Baterias = () => {
     setError("");
     setMensajes([]);
     try {
-      const response = await fetch(`http://localhost:3000/api/batteries/${selectedBateria.battery_id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${user.token}`
-        }
-      });
+      const response = await fetch(getApiUrl(`/api/batteries/${selectedBateria.battery_id}`), {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${user.token}`
+            }
+          });
 
       if (!response.ok) {
         const data = await response.json();
@@ -289,7 +297,7 @@ const Baterias = () => {
     setSelectedBateria(bateria);
     setIsInfoModalOpen(true);
     try {
-      const response = await fetch(`http://localhost:3000/api/batteries/${bateria.battery_id}`, {
+      const response = await fetch(getApiUrl(`/api/batteries/${bateria.battery_id}`), {
         headers: {
           Authorization: `Bearer ${user.token}`
         }
@@ -309,8 +317,13 @@ const Baterias = () => {
     }
   };
 
-  if (loading) {
-    return <Loading />;
+  if (loading && !error) {
+    return (
+      <div className="flex h-[calc(100vh-200px)] flex-col items-center justify-center gap-4">
+        <Loading />
+        <span className="text-gray-600">Cargando baterías...</span>
+      </div>
+    );
   }
 
   if (error) {
@@ -330,23 +343,21 @@ const Baterias = () => {
     );
   }
 
+  // Return principal: barra de búsqueda, tabla, paginación, modales, notificaciones
   return (
     <div className="mt-3 grid h-full grid-cols-1 gap-5 xl:grid-cols-2 2xl:grid-cols-3">
       <div className="col-span-1 h-fit w-full xl:col-span-2 2xl:col-span-3">
-        <Card extra="w-full h-full px-8 pb-8">
-          <div className="flex items-center justify-between py-4">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-              Baterías
-            </h1>
+        <Card extra="w-full p-4 h-full">
+          {/* Botón agregar batería, alineado arriba a la derecha */}
+          <div className="flex justify-end mb-4">
             <button
               onClick={handleCreate}
-              className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-white hover:bg-green-700"
+              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white shadow hover:bg-green-700 focus:outline-none"
             >
               <MdAdd className="h-5 w-5" />
               Agregar Batería
             </button>
           </div>
-
           {/* Barra de búsqueda */}
           <div className="mb-4">
             <form onSubmit={handleSearch} className="flex gap-2">
@@ -369,91 +380,44 @@ const Baterias = () => {
             </form>
           </div>
 
-
+          {/* Mensajes de notificación */}
+          {mensajes.map((mensaje, index) => (
+            <div
+              key={index}
+              className={`fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg p-4 shadow-lg transition-all duration-300 ${
+                mensaje.tipo === "success" ? "bg-green-500" : "bg-red-500"
+              } text-white`}
+            >
+              <span className="flex-1">{mensaje.contenido}</span>
+              <button
+                onClick={() => {
+                  setMensajes((prev) => prev.filter((_, i) => i !== index));
+                }}
+                className="ml-2 rounded-full p-1 hover:bg-white/20 focus:outline-none"
+                aria-label="Cerrar notificación"
+              >
+                ×
+              </button>
+            </div>
+          ))}
 
           {/* Tabla de baterías */}
           <div className="mt-4 overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th 
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer"
-                    onClick={() => handleSort("brand")}
-                  >
-                    <div className="flex items-center gap-1">
-                      Marca
-                      {sortField === "brand" && (
-                        sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />
-                      )}
-                    </div>
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer"
-                    onClick={() => handleSort("model")}
-                  >
-                    <div className="flex items-center gap-1">
-                      Modelo
-                      {sortField === "model" && (
-                        sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />
-                      )}
-                    </div>
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer"
-                    onClick={() => handleSort("capacity")}
-                  >
-                    <div className="flex items-center gap-1">
-                      Capacidad (Ah)
-                      {sortField === "capacity" && (
-                        sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />
-                      )}
-                    </div>
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer"
-                    onClick={() => handleSort("voltage")}
-                  >
-                    <div className="flex items-center gap-1">
-                      Voltaje (V)
-                      {sortField === "voltage" && (
-                        sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />
-                      )}
-                    </div>
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer"
-                    onClick={() => handleSort("type")}
-                  >
-                    <div className="flex items-center gap-1">
-                      Tipo
-                      {sortField === "type" && (
-                        sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />
-                      )}
-                    </div>
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer"
-                    onClick={() => handleSort("price")}
-                  >
-                    <div className="flex items-center gap-1">
-                      Precio (USD)
-                      {sortField === "price" && (
-                        sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />
-                      )}
-                    </div>
-                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer" onClick={() => handleSort("brand")}>Marca {sortField === "brand" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer" onClick={() => handleSort("model")}>Modelo {sortField === "model" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer" onClick={() => handleSort("capacity")}>Capacidad (Ah) {sortField === "capacity" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer" onClick={() => handleSort("voltage")}>Voltaje (V) {sortField === "voltage" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer" onClick={() => handleSort("type")}>Tipo {sortField === "type" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer" onClick={() => handleSort("price")}>Precio (COP) {sortField === "price" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Ficha Técnica</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="8" className="px-4 py-3 text-center text-sm text-gray-500">
-                      Cargando...
-                    </td>
-                  </tr>
-                ) : !baterias || baterias.length === 0 ? (
+                {!baterias || baterias.length === 0 ? (
                   <tr>
                     <td colSpan="8" className="px-4 py-3 text-center text-sm text-gray-500">
                       No se encontraron baterías
@@ -464,10 +428,10 @@ const Baterias = () => {
                     <tr key={bateria.battery_id} className="border-b border-gray-200">
                       <td className="px-4 py-3 text-sm text-gray-800">{bateria.brand}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">{bateria.model}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{bateria.capacity} Ah</td>
+                      <td className="px-4 py-3 text-sm text-gray-800">{bateria.capacity}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">{bateria.voltage}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">{bateria.type}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">${Number(bateria.price).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-gray-800">{formatPrice(bateria.price)}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">
                         {bateria.technical_sheet_url && (
                           <a
@@ -482,24 +446,9 @@ const Baterias = () => {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-800">
                         <div className="flex gap-2">
-                          <button
-                            onClick={() => handleInfo(bateria)}
-                            className="text-blue-600 hover:text-blue-700"
-                          >
-                            <MdVisibility className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(bateria)}
-                            className="text-green-600 hover:text-green-700"
-                          >
-                            <MdEdit className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(bateria)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <MdDelete className="h-5 w-5" />
-                          </button>
+                          <button onClick={() => handleInfo(bateria)} className="text-blue-600 hover:text-blue-700"><MdVisibility className="h-5 w-5" /></button>
+                          <button onClick={() => handleEdit(bateria)} className="text-green-600 hover:text-green-700"><MdEdit className="h-5 w-5" /></button>
+                          <button onClick={() => handleDelete(bateria)} className="text-red-600 hover:text-red-700"><MdDelete className="h-5 w-5" /></button>
                         </div>
                       </td>
                     </tr>
@@ -534,282 +483,160 @@ const Baterias = () => {
             </div>
           )}
         </Card>
-      </div>
-
-      {/* Modal de Creación/Edición */}
-      <Modal
-        isOpen={isCreateModalOpen || isEditModalOpen}
-        onClose={() => {
-          setIsCreateModalOpen(false);
-          setIsEditModalOpen(false);
-        }}
-        title={isEditModalOpen ? "Editar Batería" : "Agregar Nueva Batería"}
-      >
-        <div className="p-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Marca*
-              </label>
-              <input
-                type="text"
-                name="brand"
-                value={formData.brand}
-                onChange={handleInputChange}
-                required
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                placeholder="Ej: Tesla"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Modelo*
-              </label>
-              <input
-                type="text"
-                name="model"
-                value={formData.model}
-                onChange={handleInputChange}
-                required
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                placeholder="Ej: Powerwall 2"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Capacidad (Ah)*
-              </label>
-              <input
-                type="number"
-                name="capacity"
-                value={formData.capacity}
-                onChange={handleInputChange}
-                required
-                min="0"
-                step="0.1"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                placeholder="Ej: 100"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Voltaje (V)*
-              </label>
-              <input
-                type="number"
-                name="voltage"
-                value={formData.voltage}
-                onChange={handleInputChange}
-                required
-                min="0"
-                step="0.1"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                placeholder="Ej: 48.0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Tipo*
-              </label>
-              <select
-                name="type"
-                value={formData.type}
-                onChange={handleInputChange}
-                required
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-              >
-                <option value="Litio">Litio</option>
-                <option value="Gel">Gel</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Precio (USD)*
-              </label>
-              <input
-                type="number"
-                name="price"
-                value={formData.price}
-                onChange={handleInputChange}
-                required
-                min="0"
-                step="0.01"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                placeholder="Ej: 2500.00"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Ficha Técnica (PDF)
-              </label>
-              <div className="mt-1 flex justify-center rounded-lg border border-dashed border-gray-300 px-6 py-10">
-                <div className="text-center">
-                  <MdCloudUpload className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="mt-4 flex text-sm leading-6 text-gray-600">
-                    <label
-                      htmlFor="file-upload"
-                      className="relative cursor-pointer rounded-md bg-white font-semibold text-blue-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-600 focus-within:ring-offset-2 hover:text-blue-500"
-                    >
-                      <span>Subir archivo</span>
-                      <input
-                        id="file-upload"
-                        name="technical_sheet"
-                        type="file"
-                        accept=".pdf"
-                        onChange={handleFileChange}
-                        className="sr-only"
-                      />
-                    </label>
-                    <p className="pl-1">o arrastrar y soltar</p>
-                  </div>
-                  <p className="text-xs leading-5 text-gray-600">
-                    Solo archivos PDF hasta 10MB
-                  </p>
-                </div>
-              </div>
-              {formData.technical_sheet && (
-                <p className="mt-2 text-sm text-gray-500">
-                  Archivo seleccionado: {formData.technical_sheet.name}
-                </p>
-              )}
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCreateModalOpen(false);
-                  setIsEditModalOpen(false);
-                }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
-              >
-                {loading ? "Guardando..." : isEditModalOpen ? "Guardar Cambios" : "Guardar"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </Modal>
-
-      {/* Modal de Eliminación */}
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        title="Eliminar Batería"
-      >
-        <div className="p-4">
-          <p className="text-gray-600">
-            ¿Está seguro que desea eliminar la batería {selectedBateria?.model}?
-          </p>
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              onClick={() => setIsDeleteModalOpen(false)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleDeleteConfirm}
-              className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
-            >
-              Eliminar
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Modal de Información */}
-      <Modal
-        isOpen={isInfoModalOpen}
-        onClose={() => setIsInfoModalOpen(false)}
-        title="Información de la Batería"
-      >
-        <div className="p-4">
-          <div className="space-y-6">
-            <div>
-              <h3 className="mb-4 text-lg font-semibold text-gray-800">Datos de la Batería</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Marca</p>
-                  <p className="text-sm text-gray-800">{bateriaInfo?.brand || selectedBateria?.brand}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Modelo</p>
-                  <p className="text-sm text-gray-800">{bateriaInfo?.model || selectedBateria?.model}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Capacidad</p>
-                  <p className="text-sm text-gray-800">{bateriaInfo?.capacity || selectedBateria?.capacity} Ah</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Voltaje</p>
-                  <p className="text-sm text-gray-800">{bateriaInfo?.voltage || selectedBateria?.voltage} V</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Tipo</p>
-                  <p className="text-sm text-gray-800">{bateriaInfo?.type || selectedBateria?.type}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Precio</p>
-                  <p className="text-sm text-gray-800">${Number(bateriaInfo?.price || selectedBateria?.price).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Ficha Técnica</p>
-                  {(bateriaInfo?.technical_sheet_url || selectedBateria?.technical_sheet_url) ? (
-                    <a
-                      href={getFichaTecnicaUrl(bateriaInfo?.technical_sheet_url || selectedBateria?.technical_sheet_url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700"
-                    >
-                      Ver PDF
-                    </a>
-                  ) : (
-                    <p className="text-sm text-gray-500">No disponible</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={() => setIsInfoModalOpen(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Mensajes de notificación */}
-      {mensajes.map((mensaje, index) => (
-        <div
-          key={index}
-          className={`fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg p-4 shadow-lg transition-all duration-300 ${
-            mensaje.tipo === "success" ? "bg-green-500" : "bg-red-500"
-          } text-white`}
+        {/* Modal de Creación/Edición */}
+        <Modal
+          isOpen={isCreateModalOpen || isEditModalOpen}
+          onClose={() => {
+            setIsCreateModalOpen(false);
+            setIsEditModalOpen(false);
+          }}
+          title={isEditModalOpen ? "Editar Batería" : "Agregar Nueva Batería"}
         >
-          <span className="flex-1">{mensaje.contenido}</span>
-          <button
-            onClick={() => {
-              setMensajes((prev) => prev.filter((_, i) => i !== index));
-            }}
-            className="ml-2 rounded-full p-1 hover:bg-white/20 focus:outline-none"
-            aria-label="Cerrar notificación"
-          >
-            ×
-          </button>
-        </div>
-      ))}
+          <div className="p-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Marca*</label>
+                <input type="text" name="brand" value={formData.brand} onChange={handleInputChange} required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" placeholder="Ej: Trojan" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Modelo*</label>
+                <input type="text" name="model" value={formData.model} onChange={handleInputChange} required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" placeholder="Ej: T-105" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Capacidad (Ah)*</label>
+                <input type="number" name="capacity" value={formData.capacity} onChange={handleInputChange} required min="0" step="0.01" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" placeholder="Ej: 100" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Voltaje (V)*</label>
+                <input type="number" name="voltage" value={formData.voltage} onChange={handleInputChange} required min="0" step="0.01" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" placeholder="Ej: 12" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Tipo*</label>
+                <select name="type" value={formData.type} onChange={handleInputChange} required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2">
+                  <option value="Litio">Litio</option>
+                  <option value="AGM">AGM</option>
+                  <option value="GEL">GEL</option>
+                  <option value="Plomo-Ácido">Plomo-Ácido</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Precio (COP)*</label>
+                <input type="number" name="price" value={formData.price} onChange={handleInputChange} required min="0" step="0.01" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" placeholder="Ej: 150000" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Ficha Técnica (PDF)</label>
+                <div className="mt-1 flex justify-center rounded-lg border border-dashed border-gray-300 px-6 py-10">
+                  <div className="text-center">
+                    <MdCloudUpload className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="mt-4 flex text-sm leading-6 text-gray-600">
+                      <label htmlFor="file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-blue-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-600 focus-within:ring-offset-2 hover:text-blue-500">
+                        <span>Subir archivo</span>
+                        <input id="file-upload" name="technical_sheet" type="file" accept=".pdf" onChange={handleFileChange} className="sr-only" />
+                      </label>
+                      <p className="pl-1">o arrastrar y soltar</p>
+                    </div>
+                    <p className="text-xs leading-5 text-gray-600">Solo archivos PDF hasta 10MB</p>
+                  </div>
+                </div>
+                {formData.technical_sheet && (
+                  <p className="mt-2 text-sm text-gray-500">Archivo seleccionado: {formData.technical_sheet.name}</p>
+                )}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => { setIsCreateModalOpen(false); setIsEditModalOpen(false); }} className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800">Cancelar</button>
+                <button type="submit" disabled={loading} className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50">
+                  {loading ? (isEditModalOpen ? "Actualizando..." : "Creando...") : isEditModalOpen ? "Guardar Cambios" : "Guardar"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </Modal>
+
+        {/* Modal de Eliminación */}
+        <Modal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          title="Eliminar Batería"
+        >
+          <div className="p-4">
+            <p className="text-gray-600">¿Está seguro que desea eliminar la batería {selectedBateria?.model}?</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setIsDeleteModalOpen(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800">Cancelar</button>
+              <button onClick={handleDeleteConfirm} disabled={loading} className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50">{loading ? "Eliminando..." : "Eliminar"}</button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Modal de Información */}
+        <Modal
+          isOpen={isInfoModalOpen}
+          onClose={() => { setIsInfoModalOpen(false); setBateriaInfo(null); }}
+          title="Información de la Batería"
+        >
+          <div className="p-4">
+            <div className="space-y-6">
+              <div>
+                <h3 className="mb-4 text-lg font-semibold text-gray-800">Datos de la Batería</h3>
+                {bateriaInfo ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Marca</p>
+                      <p className="text-sm text-gray-800">{bateriaInfo.brand}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Modelo</p>
+                      <p className="text-sm text-gray-800">{bateriaInfo.model}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Capacidad</p>
+                      <p className="text-sm text-gray-800">{bateriaInfo.capacity} Ah</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Voltaje</p>
+                      <p className="text-sm text-gray-800">{bateriaInfo.voltage} V</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Tipo</p>
+                      <p className="text-sm text-gray-800">{bateriaInfo.type}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Precio</p>
+                      <p className="text-sm text-gray-800">{formatPrice(bateriaInfo.price)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Ficha Técnica</p>
+                      {bateriaInfo.technical_sheet_url ? (
+                        <a
+                          href={getTechnicalSheetUrl(bateriaInfo.technical_sheet_url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-700 underline"
+                        >
+                          Ver PDF
+                        </a>
+                      ) : (
+                        <p className="text-sm text-gray-500">No disponible</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="mt-2 text-sm text-gray-600">Cargando información...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <button onClick={() => { setIsInfoModalOpen(false); setBateriaInfo(null); }} className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800">Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      </div>
     </div>
   );
 };
 
-export default Baterias; 
+export default Baterias;

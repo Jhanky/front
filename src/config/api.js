@@ -1,5 +1,7 @@
 export const API_CONFIG = {
-  BASE_URL: process.env.REACT_APP_API_URL || 'http://149.130.169.113:3030',
+  BASE_URL: process.env.NODE_ENV === 'production' 
+    ? (process.env.REACT_APP_API_URL || 'https://www.api.energy4cero.com/public')
+    : (process.env.REACT_APP_API_URL || 'https://www.api.energy4cero.com/public'),
   ENDPOINTS: {
     AUTH: '/api/auth',
     USERS: '/api/usuarios',

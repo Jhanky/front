@@ -3,6 +3,8 @@ import Card from "components/card";
 import { MdAdd, MdEdit, MdDelete, MdVisibility } from "react-icons/md";
 import Modal from "components/modal";
 import { useAuth } from "context/AuthContext";
+import { getApiUrl, API_CONFIG } from "config/api";
+import Loading from "components/loading";
 
 const Proveedores = () => {
   const { user } = useAuth();
@@ -35,7 +37,7 @@ const Proveedores = () => {
   const fetchProveedores = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:3000/api/suppliers", {
+      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.SUPPLIERS), {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${user.token}`,
@@ -48,8 +50,15 @@ const Proveedores = () => {
       }
 
       const data = await response.json();
-      setProveedores(data);
+      console.log('Datos recibidos de la API:', data); // Agregar este log
+      
+      // Verificar si los datos vienen en un wrapper (como data.data o data.suppliers)
+      const proveedoresData = data.data || data.suppliers || data;
+      console.log('Proveedores procesados:', proveedoresData); // Agregar este log
+      
+      setProveedores(Array.isArray(proveedoresData) ? proveedoresData : []);
     } catch (error) {
+      console.error('Error al cargar proveedores:', error); // Agregar este log
       setError(error.message);
     } finally {
       setLoading(false);
@@ -124,8 +133,8 @@ const Proveedores = () => {
       }
 
       const url = isEditMode 
-        ? `http://localhost:3000/api/suppliers/${selectedProveedor.id}`
-        : "http://localhost:3000/api/suppliers";
+        ? getApiUrl(`${API_CONFIG.ENDPOINTS.SUPPLIERS}/${selectedProveedor.id}`)
+        : getApiUrl(API_CONFIG.ENDPOINTS.SUPPLIERS);
       
       const method = isEditMode ? "PUT" : "POST";
 
@@ -143,13 +152,39 @@ const Proveedores = () => {
         throw new Error(errorData.message || `Error al ${isEditMode ? 'actualizar' : 'crear'} el proveedor`);
       }
 
+      const responseData = await response.json();
+      console.log('Respuesta de la API:', responseData); // Agregar este log
+      
+      // Verificar si los datos vienen en un wrapper
+      const proveedorData = responseData.data || responseData.supplier || responseData;
+      console.log('Proveedor procesado:', proveedorData); // Agregar este log
+
+      // Actualización dinámica del estado local
+      if (isEditMode) {
+        // Actualizar proveedor existente
+        setProveedores(prev => {
+          const updated = prev.map(proveedor => 
+            proveedor.id === selectedProveedor.id ? proveedorData : proveedor
+          );
+          console.log('Estado actualizado (edición):', updated); // Agregar este log
+          return updated;
+        });
+      } else {
+        // Agregar nuevo proveedor
+        setProveedores(prev => {
+          const updated = [...prev, proveedorData];
+          console.log('Estado actualizado (creación):', updated); // Agregar este log
+          return updated;
+        });
+      }
+
       // Mostrar mensaje de éxito
       const successMessage = isEditMode 
         ? `Proveedor "${formData.name}" actualizado exitosamente`
         : `Proveedor "${formData.name}" creado exitosamente`;
       showNotification(successMessage, "success");
 
-      // Cerrar modal y recargar lista
+      // Cerrar modal
       if (isEditMode) {
         setIsEditModalOpen(false);
       } else {
@@ -157,8 +192,8 @@ const Proveedores = () => {
       }
       setSelectedProveedor(null);
       setIsEditMode(false);
-      fetchProveedores();
     } catch (error) {
+      console.error('Error en handleFormSubmit:', error); // Agregar este log
       setFormError(error.message);
     } finally {
       setFormLoading(false);
@@ -168,7 +203,7 @@ const Proveedores = () => {
   const handleDeleteConfirm = async () => {
     try {
       setFormLoading(true);
-      const response = await fetch(`http://localhost:3000/api/suppliers/${selectedProveedor.id}`, {
+      const response = await fetch(getApiUrl(`${API_CONFIG.ENDPOINTS.SUPPLIERS}/${selectedProveedor.id}`), {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${user.token}`,
@@ -181,13 +216,16 @@ const Proveedores = () => {
         throw new Error(errorData.message || "Error al eliminar el proveedor");
       }
 
+      // Actualización dinámica del estado local
+      // Actualización dinámica del estado local
+      setProveedores(prev => prev.filter(proveedor => proveedor.id !== selectedProveedor.id));
+
       // Mostrar mensaje de éxito
       showNotification(`Proveedor "${selectedProveedor.name}" eliminado exitosamente`, "success");
 
-      // Cerrar modal y recargar lista
+      // Cerrar modal
       setIsDeleteModalOpen(false);
       setSelectedProveedor(null);
-      fetchProveedores();
     } catch (error) {
       setFormError(error.message);
       // Mantener el modal abierto para mostrar el error
@@ -214,11 +252,7 @@ const Proveedores = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Cargando proveedores...</div>
-      </div>
-    );
+    return <Loading />;
   }
 
   if (error) {
@@ -272,6 +306,7 @@ const Proveedores = () => {
 
           {/* Tabla de proveedores */}
           <div className="mt-4 overflow-x-auto">
+            {console.log('Renderizando proveedores:', proveedores)} {/* Agregar este log */}
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
@@ -718,4 +753,4 @@ const Proveedores = () => {
   );
 };
 
-export default Proveedores; 
+export default Proveedores;

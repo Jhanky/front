@@ -3,26 +3,7 @@ import { getApiUrl } from '../config/api';
 
 const AuthContext = createContext(null);
 
-// Datos de ejemplo para usuarios
-const USUARIOS_EJEMPLO = [
-  {
-    id: 1,
-    email: "admin@example.com",
-    password: "admin123",
-    first_name: "Admin",
-    last_name: "Sistema",
-    role: "admin"
-  },
-  {
-    id: 2,
-    email: "vendedor@example.com",
-    password: "vendedor123",
-    first_name: "Vendedor",
-    last_name: "Ejemplo",
-    role: "vendedor"
-  }
-];
-
+// Mapeo de roles para compatibilidad
 const ROLES = {
   1: "admin",      // Administrador
   2: "comercial",  // Comercial  
@@ -60,10 +41,14 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      console.log('Intentando login con:', { email });
+      console.log('URL de login:', getApiUrl('/api/auth/login'));
+      
       const response = await fetch(getApiUrl('/api/auth/login'), {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         },
         body: JSON.stringify({ 
           email, 
@@ -71,18 +56,47 @@ export const AuthProvider = ({ children }) => {
         })
       });
 
+      console.log('Response status:', response.status);
+      
       const data = await response.json();
+      console.log('Response data:', data);
 
       if (!response.ok) {
-        throw new Error(data.mensaje || "Error al iniciar sesión");
+        throw new Error(data.message || data.mensaje || "Error al iniciar sesión");
       }
 
-      // Mapear el rol numérico a string y usar el campo correcto según la nueva estructura
-      const userData = {
-        ...data.user,
-        token: data.token,
-        role: ROLES[data.user.role_id] || "admin"
-      };
+      // Adaptar la respuesta de Laravel a la estructura esperada
+      let userData;
+      
+      if (data.user && data.token) {
+        // Estructura típica de Laravel con Sanctum/Passport
+        userData = {
+          id: data.user.id,
+          email: data.user.email,
+          first_name: data.user.first_name || data.user.name?.split(' ')[0] || '',
+          last_name: data.user.last_name || data.user.name?.split(' ').slice(1).join(' ') || '',
+          name: data.user.name || `${data.user.first_name} ${data.user.last_name}`,
+          role: ROLES[data.user.role_id] || data.user.role || "admin",
+          role_id: data.user.role_id,
+          token: data.token
+        };
+      } else if (data.access_token) {
+        // Estructura alternativa con access_token
+        userData = {
+          id: data.user?.id || data.id,
+          email: data.user?.email || data.email,
+          first_name: data.user?.first_name || data.first_name || '',
+          last_name: data.user?.last_name || data.last_name || '',
+          name: data.user?.name || data.name || `${data.first_name} ${data.last_name}`,
+          role: ROLES[data.user?.role_id || data.role_id] || data.role || "admin",
+          role_id: data.user?.role_id || data.role_id,
+          token: data.access_token
+        };
+      } else {
+        throw new Error("Estructura de respuesta no reconocida");
+      }
+
+      console.log('Usuario procesado:', userData);
 
       // Guardar usuario y token en localStorage
       localStorage.setItem("user", JSON.stringify(userData));
@@ -97,10 +111,33 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("redirectPath");
-    setUser(null);
+  const logout = async () => {
+    try {
+      const token = user?.token;
+      if (token) {
+        // Intentar hacer logout en el servidor
+        try {
+          await fetch(getApiUrl('/api/auth/logout'), {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json",
+              "Accept": "application/json"
+            }
+          });
+        } catch (error) {
+          console.warn('Error al hacer logout en servidor:', error);
+          // Continuar con el logout local aunque falle el servidor
+        }
+      }
+    } catch (error) {
+      console.error('Error en logout:', error);
+    } finally {
+      // Limpiar datos locales siempre
+      localStorage.removeItem("user");
+      localStorage.removeItem("redirectPath");
+      setUser(null);
+    }
   };
 
   const value = {

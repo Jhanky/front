@@ -1,3 +1,4 @@
+// Handlers deben ir dentro del componente Paneles para acceder a los hooks
 import React, { useState, useEffect } from "react";
 import Card from "components/card";
 import { MdAdd, MdEdit, MdDelete, MdVisibility, MdCloudUpload, MdSearch, MdArrowUpward, MdArrowDownward } from "react-icons/md";
@@ -7,7 +8,44 @@ import Mensaje from "components/mensaje";
 import Loading from "components/loading";
 import { getApiUrl, getTechnicalSheetUrl } from '../../../config/api';
 
+// Formatea el precio con separador de miles y símbolo $
+const formatPrice = (value) => {
+  if (value === undefined || value === null || value === "") return "";
+  const num = Number(value.toString().replace(/[^\d]/g, ""));
+  if (isNaN(num) || num === 0) return "";
+  return `$ ${num.toLocaleString("es-CO")}`;
+};
+
+// Devuelve el número limpio para enviar al backend
+const parsePrice = (value) => {
+  if (!value) return 0;
+  return Number(value.toString().replace(/[^\d]/g, ""));
+};
+
 const Paneles = () => {
+  // Handlers para editar, eliminar y cambio de archivo
+  const handleEdit = (panel) => {
+    setSelectedPanel(panel);
+    setFormData({
+      marca: panel.brand || "",
+      modelo: panel.model || "",
+      potencia: panel.power || "",
+      tipo: panel.type || "Monocristalino",
+      precio: panel.price ? panel.price.toString() : "",
+      ficha_tecnica: null // No se carga archivo existente
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleDelete = (panel) => {
+    setSelectedPanel(panel);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    setFormData(prev => ({ ...prev, ficha_tecnica: file }));
+  };
   const { user } = useAuth();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -51,21 +89,17 @@ const Paneles = () => {
         sort: sortField,
         order: sortOrder
       });
-  
+
       const response = await fetch(getApiUrl(`/api/panels?${queryParams}`), {
         headers: {
           Authorization: `Bearer ${user.token}`
         }
       });
-      
-      if (!response.ok) throw new Error("Error al cargar los paneles");
-      
       const data = await response.json();
-      setPaneles(Array.isArray(data) ? data : []);
-      setTotalPages(1); // Por ahora, ya que la API no devuelve paginación
-    } catch (err) {
-      setError("Error al cargar los paneles: " + err.message);
-      setPaneles([]);
+      setPaneles(Array.isArray(data.data?.data) ? data.data.data : []);
+      setTotalPages(data.data?.last_page || 1);
+    } catch (error) {
+      setError(error.message);
     } finally {
       setLoading(false);
     }
@@ -115,76 +149,7 @@ const Paneles = () => {
     setIsCreateModalOpen(true);
   };
 
-  const handleEdit = (panel) => {
-    setSelectedPanel(panel);
-    setFormData({
-      marca: panel.brand,
-      modelo: panel.model,
-      potencia: panel.power,
-      tipo: panel.type,
-      precio: panel.price,
-      ficha_tecnica: null
-    });
-    setIsEditModalOpen(true);
-  };
 
-  const handleDelete = (panel) => {
-    setSelectedPanel(panel);
-    setIsDeleteModalOpen(true);
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.type === "application/pdf") {
-        if (file.size <= 10 * 1024 * 1024) { // 10MB
-          setFormData(prev => ({
-            ...prev,
-            ficha_tecnica: file
-          }));
-          setError("");
-        } else {
-          setError("El archivo no debe superar los 10MB");
-          setMensajes([{
-            contenido: "El archivo no debe superar los 10MB",
-            tipo: "error"
-          }]);
-          
-          // Limpiar mensaje después de 2 segundos
-          setTimeout(() => {
-            setMensajes([]);
-          }, 2000);
-        }
-      } else {
-        setError("Solo se permiten archivos PDF");
-        setMensajes([{
-          contenido: "Solo se permiten archivos PDF",
-          tipo: "error"
-        }]);
-        
-        // Limpiar mensaje después de 2 segundos
-        setTimeout(() => {
-          setMensajes([]);
-        }, 2000);
-      }
-    }
-  };
-
-  const formatPrice = (value) => {
-    // Eliminar todo excepto números
-    const numbers = value.replace(/\D/g, "");
-    // Formatear con separadores de miles
-    const formatted = numbers.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    return formatted;
-  };
-
-  const handlePriceChange = (e) => {
-    const formattedValue = formatPrice(e.target.value);
-    setFormData(prev => ({
-      ...prev,
-      precio: formattedValue
-    }));
-  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -235,16 +200,16 @@ const Paneles = () => {
           throw new Error("Solo se permiten archivos PDF");
       }
         
-        formDataToSend.append("brand", formData.marca.trim());
-        formDataToSend.append("model", formData.modelo.trim());
-        formDataToSend.append("power", Number(formData.potencia));
-        formDataToSend.append("type", formData.tipo);
-        formDataToSend.append("price", Number(formData.precio.replace(/\./g, "")));
-        formDataToSend.append("technical_sheet", formData.ficha_tecnica);
+  formDataToSend.append("brand", formData.marca.trim());
+  formDataToSend.append("model", formData.modelo.trim());
+  formDataToSend.append("power", Number(formData.potencia));
+  formDataToSend.append("type", formData.tipo);
+  formDataToSend.append("price", parsePrice(formData.precio));
+  formDataToSend.append("technical_sheet", formData.ficha_tecnica);
 
       const url = isEditModalOpen
-          ? `http://localhost:3000/api/panels/${selectedPanel.panel_id}`
-          : "http://localhost:3000/api/panels";
+        ? getApiUrl(`/api/panels/${selectedPanel.panel_id}`)
+        : getApiUrl('/api/panels');
 
         console.log("=== ENVIANDO CON ARCHIVO ===");
         console.log("URL:", url);
@@ -303,17 +268,22 @@ const Paneles = () => {
         }
       } else {
         // Usar JSON para datos sin archivo
+
+        // Si es edición, incluir technical_sheet_url si existe
         const panelData = {
           brand: formData.marca.trim(),
           model: formData.modelo.trim(),
           power: Number(formData.potencia),
           type: formData.tipo,
-          price: Number(formData.precio.replace(/\./g, ""))
+          price: parsePrice(formData.precio)
         };
+        if (isEditModalOpen && selectedPanel?.technical_sheet_url) {
+          panelData.technical_sheet_url = selectedPanel.technical_sheet_url;
+        }
 
         const url = isEditModalOpen
-          ? `http://localhost:3000/api/panels/${selectedPanel.panel_id}`
-          : "http://localhost:3000/api/panels";
+          ? getApiUrl(`/api/panels/${selectedPanel.panel_id}`)
+          : getApiUrl('/api/panels');
 
         console.log("Enviando sin archivo:", url);
         console.log("Datos del formulario:", formData);
@@ -399,7 +369,7 @@ const Paneles = () => {
     setMensajes([]);
 
     try {
-      const response = await fetch(`http://localhost:3000/api/panels/${selectedPanel.panel_id}`, {
+      const response = await fetch(getApiUrl(`/api/panels/${selectedPanel.panel_id}`), {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${user.token}`
@@ -442,7 +412,7 @@ const Paneles = () => {
     
     try {
       // Obtener información detallada del panel
-      const response = await fetch(`http://localhost:3000/api/panels/${panel.panel_id}`, {
+      const response = await fetch(getApiUrl(`/api/panels/${panel.panel_id}`), {
         headers: {
           Authorization: `Bearer ${user.token}`
         }
@@ -472,8 +442,13 @@ const Paneles = () => {
     return getTechnicalSheetUrl(url);
   };
 
-  if (loading) {
-    return <Loading />;
+  if (loading && !error) {
+    return (
+      <div className="flex h-[calc(100vh-200px)] flex-col items-center justify-center gap-4">
+        <Loading />
+        <span className="text-gray-600">Cargando paneles...</span>
+      </div>
+    );
   }
 
   if (error) {
@@ -631,7 +606,7 @@ const Paneles = () => {
                       <td className="px-4 py-3 text-sm text-gray-800">{panel.model}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">{panel.power}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">{panel.type}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">${Number(panel.price).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-gray-800">{formatPrice(panel.price)}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">
                         {panel.technical_sheet_url && (
                           <a
@@ -838,7 +813,13 @@ const Paneles = () => {
                 disabled={loading}
                 className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
               >
-                {loading ? "Guardando..." : isEditModalOpen ? "Guardar Cambios" : "Guardar"}
+                {loading
+                  ? (isEditModalOpen
+                      ? "Actualizando..."
+                      : "Creando...")
+                  : isEditModalOpen
+                    ? "Guardar Cambios"
+                    : "Guardar"}
               </button>
             </div>
           </form>
@@ -864,9 +845,10 @@ const Paneles = () => {
             </button>
             <button
               onClick={handleDeleteConfirm}
-              className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+              disabled={loading}
+              className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50"
             >
-              Eliminar
+              {loading ? "Eliminando..." : "Eliminar"}
             </button>
           </div>
         </div>
