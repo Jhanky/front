@@ -37,7 +37,7 @@ const ChatWindow = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="h-[600px] w-[400px] rounded-lg bg-white shadow-xl">
+              <div className="h-[600px] w-[400px] rounded-lg bg-primary-card shadow-xl text-text-primary">
         {/* Header */}
         <div className="flex items-center justify-between rounded-t-lg bg-brand-500 p-4">
           <h3 className="text-lg font-bold text-white">Asistente Virtual</h3>

@@ -1,14 +1,13 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
-import Main from "layouts/admin";
 import SignIn from "views/auth/SignIn";
 import Unauthorized from "views/admin/unauthorized";
+import Inicio from "views/admin/inicio";
 
 // Admin pages
-import Dashboard from "views/admin/default";
 import Clientes from "views/admin/clientes";
 import Cotizaciones from "views/admin/cotizaciones";
-import Propuestas from "views/admin/propuestas";
+import DetalleCotizacion from "views/admin/cotizaciones/[id]";
 import Paneles from "views/admin/paneles";
 import Inversores from "views/admin/inversores";
 import Baterias from "views/admin/baterias";
@@ -19,14 +18,19 @@ import Facturas from "views/admin/contabilidad/facturas";
 import CentrosCosto from "views/admin/contabilidad/centros-costo";
 import Proveedores from "views/admin/contabilidad/proveedores";
 import Proyectos from "views/admin/proyectos";
+import ProyectoDetalle from "views/admin/proyectos/[id]";
+
+// Comercial pages
+import ComercialCotizaciones from "views/comercial/cotizaciones";
+import ComercialDetalleCotizacion from "views/comercial/cotizaciones/[id]";
 
 // Mapeo de rutas a componentes
 export const routeComponents = {
   "sign-in": <SignIn />,
-  "default": <Dashboard />,
+  "inicio": <Inicio />,
   "clientes": <Clientes />,
   "cotizaciones": <Cotizaciones />,
-  "propuestas": <Propuestas />,
+  "cotizaciones/:id": <DetalleCotizacion />,
   "paneles": <Paneles />,
   "inversores": <Inversores />,
   "baterias": <Baterias />,
@@ -38,6 +42,9 @@ export const routeComponents = {
   "contabilidad/centros-costo": <CentrosCosto />,
   "contabilidad/proveedores": <Proveedores />,
   "proyectos": <Proyectos />,
+  "proyectos/:id": <ProyectoDetalle />,
+  "comercial/cotizaciones": <ComercialCotizaciones />,
+  "comercial/cotizaciones/:id": <ComercialDetalleCotizacion />,
   "*": <Navigate to="/404" />
 };
 

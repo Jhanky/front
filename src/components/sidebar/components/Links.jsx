@@ -14,6 +14,8 @@ export function SidebarLinks(props) {
   const { user } = useAuth();
   const [openSubmenus, setOpenSubmenus] = useState({});
 
+
+
   // verifies if routeName is the one active (in browser input)
   const activeRoute = (routeName) => {
     return location.pathname.includes(routeName);
@@ -28,10 +30,14 @@ export function SidebarLinks(props) {
 
   const hasAccess = (route) => {
     // Si no hay roles definidos, permitir acceso
-    if (!route.allowedRoles) return true;
+    if (!route.allowedRoles) {
+      return true;
+    }
     
     // Si el usuario no tiene rol, denegar acceso
-    if (!user?.role) return false;
+    if (!user?.role) {
+      return false;
+    }
     
     // Verificar si el rol del usuario está en los roles permitidos
     return route.allowedRoles.includes(user.role);
@@ -57,8 +63,8 @@ export function SidebarLinks(props) {
                       collapsed ? "px-4" : "px-8"
                     } ${
                       activeRoute(route.path)
-                        ? "bg-green-50 text-green-600 dark:bg-navy-700 dark:text-white"
-                        : "text-gray-800 dark:text-gray-200"
+                        ? "bg-accent-primary/20 text-accent-primary"
+                        : "text-text-secondary hover:text-text-primary"
                     }`}
                     onClick={() => toggleSubmenu(currentIndex)}
                   >
@@ -66,8 +72,8 @@ export function SidebarLinks(props) {
                       <span
                         className={`${
                           activeRoute(route.path) === true
-                            ? "font-bold text-green-600 dark:text-white"
-                            : "font-medium text-gray-800"
+                            ? "font-bold text-accent-primary"
+                            : "font-medium text-text-secondary"
                         }`}
                       >
                         {route.icon ? route.icon : <DashIcon />}{" "}
@@ -76,8 +82,8 @@ export function SidebarLinks(props) {
                         <p
                           className={`leading-1 ml-4 flex ${
                             activeRoute(route.path) === true
-                              ? "font-bold text-gray-800 dark:text-white"
-                              : "font-medium text-gray-800"
+                              ? "font-bold text-accent-primary"
+                              : "font-medium text-text-secondary"
                           }`}
                         >
                           {route.name}
@@ -95,14 +101,14 @@ export function SidebarLinks(props) {
                     )}
                   </div>
                   {openSubmenus[currentIndex] && !collapsed && (
-                    <div className="mt-2 space-y-2 ml-4 border-l border-gray-200 dark:border-navy-700 pl-2">
+                    <div className="mt-2 space-y-2 ml-4 border-l border-text-disabled/30 pl-2">
                       {createLinks(route.submenu, currentIndex)}
                     </div>
                   )}
                 </div>
               ) : (
                 <Link key={currentIndex} to={route.layout + "/" + route.path}>
-                  <div className="relative mb-3 flex hover:cursor-pointer">
+                  <div className="relative mb-3 flex hover:cursor-pointer hover:bg-accent-primary/10 transition-colors rounded-lg">
                     <li
                       className={`my-[3px] flex cursor-pointer items-center ${
                         collapsed ? "px-4" : "px-8"
@@ -112,8 +118,8 @@ export function SidebarLinks(props) {
                       <span
                         className={`${
                           activeRoute(route.path) === true
-                            ? "font-bold text-green-600 dark:text-white"
-                            : "font-medium text-gray-800"
+                            ? "font-bold text-accent-primary"
+                            : "font-medium text-text-secondary"
                         }`}
                       >
                         {route.icon ? route.icon : <DashIcon />}{" "}
@@ -122,8 +128,8 @@ export function SidebarLinks(props) {
                         <p
                           className={`leading-1 ml-4 flex ${
                             activeRoute(route.path) === true
-                              ? "font-bold text-gray-800 dark:text-white"
-                              : "font-medium text-gray-800"
+                              ? "font-bold text-accent-primary"
+                              : "font-medium text-text-secondary"
                           }`}
                         >
                           {route.name}
@@ -131,7 +137,7 @@ export function SidebarLinks(props) {
                       )}
                     </li>
                     {activeRoute(route.path) ? (
-                      <div className="absolute right-0 top-px h-9 w-1 rounded-lg bg-green-600 dark:bg-green-400" />
+                      <div className="absolute right-0 top-px h-9 w-1 rounded-lg bg-accent-primary" />
                     ) : null}
                   </div>
                 </Link>

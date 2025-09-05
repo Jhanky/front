@@ -15,8 +15,12 @@ const Admin = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [currentRoute, setCurrentRoute] = React.useState("Main Dashboard");
   
+
+  
   // Obtener rutas según el rol del usuario
   const routes = routesModule.getRoutesByRole(user?.role);
+
+
 
   React.useEffect(() => {
     // Desactivar modo oscuro
@@ -94,7 +98,14 @@ const Admin = () => {
         }
       }
     });
-    return allRoutes;
+    
+    // Agregar rutas dinámicas que no están en el menú
+    const dynamicRoutes = [
+      { path: "cotizaciones/:id", element: routeComponents["cotizaciones/:id"] },
+      { path: "proyectos/:id", element: routeComponents["proyectos/:id"] }
+    ];
+    
+    return [...allRoutes, ...dynamicRoutes];
   };
 
   if (loading) {
@@ -115,7 +126,7 @@ const Admin = () => {
         onCollapse={handleSidebarCollapse}
       />
       {/* Main Content */}
-      <div className="h-full w-full bg-lightPrimary dark:!bg-navy-900">
+      <div className="h-full w-full bg-primary">
         <main className={`mx-[12px] h-full flex-none transition-all duration-300 md:pr-2 ${
           sidebarCollapsed ? 'xl:ml-[80px]' : 'xl:ml-[313px]'
         }`}>

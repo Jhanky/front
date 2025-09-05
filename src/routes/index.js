@@ -14,7 +14,7 @@ const commonRoutes = [
 // Función para obtener rutas según el rol del usuario
 const getRoutesByRole = (userRole) => {
   switch (userRole) {
-    case 'admin':
+    case 'administrador':
       return [...adminRoutes, ...commonRoutes];
     case 'comercial':
       return [...comercialRoutes, ...commonRoutes];

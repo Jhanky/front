@@ -5,6 +5,7 @@ import Mensaje from "components/mensaje";
 import Loading from "components/loading";
 import Modal from "components/modal";
 import { useAuth } from "context/AuthContext";
+import { getApiUrl } from '../../../config/api';
 
 const Proyectos = () => {
   const { user } = useAuth();
@@ -24,7 +25,7 @@ const Proyectos = () => {
       setLoading(true);
       const token = user?.token;
       if (!token) throw new Error("No hay token de autenticación");
-      const response = await fetch("http://localhost:3000/api/projects", {
+      const response = await fetch(getApiUrl("/api/projects"), {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
@@ -54,7 +55,7 @@ const Proyectos = () => {
       const token = user?.token;
       if (!token) throw new Error("No hay token de autenticación");
       const id = proyecto.id || proyecto.proyecto_id || proyecto._id || proyecto.id_proyecto || proyecto.nombre_proyecto;
-      const response = await fetch(`http://localhost:3000/api/projects/${id}/detail`, {
+      const response = await fetch(getApiUrl(`/api/projects/${id}/detail`), {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
@@ -98,7 +99,7 @@ const Proyectos = () => {
       const token = user?.token;
       if (!token) throw new Error("No hay token de autenticación");
       const id = proyecto.id || proyecto.proyecto_id || proyecto._id || proyecto.id_proyecto || proyecto.nombre_proyecto;
-      const response = await fetch(`http://localhost:3000/api/projects/${id}/status`, {
+      const response = await fetch(getApiUrl(`/api/projects/${id}/status`), {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -134,7 +135,7 @@ const Proyectos = () => {
       const token = user?.token;
       if (!token) throw new Error("No hay token de autenticación");
       const id = selectedProyecto.id || selectedProyecto.proyecto_id || selectedProyecto._id || selectedProyecto.id_proyecto || selectedProyecto.nombre_proyecto;
-      const response = await fetch(`http://localhost:3000/api/projects/${id}/dates`, {
+      const response = await fetch(getApiUrl(`/api/projects/${id}/dates`), {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -348,7 +349,7 @@ const Proyectos = () => {
                         </td>
                         <td className="border px-2 py-1 text-center">
                           {prod.ficha_tecnica ? (
-                            <a href={`http://localhost:3000${prod.ficha_tecnica}`} target="_blank" rel="noopener noreferrer" title="Ver ficha técnica">
+                            <a href={getApiUrl(prod.ficha_tecnica)} target="_blank" rel="noopener noreferrer" title="Ver ficha técnica">
                               <MdRemoveRedEye className="inline-block text-blue-600 hover:text-blue-800 w-5 h-5" />
                             </a>
                           ) : (
@@ -442,4 +443,4 @@ const Proyectos = () => {
   );
 };
 
-export default Proyectos; 
+export default Proyectos;

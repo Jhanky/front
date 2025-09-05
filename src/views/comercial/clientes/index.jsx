@@ -5,6 +5,8 @@ import Modal from "components/modal";
 import { useAuth } from "context/AuthContext";
 import Mensaje from "components/mensaje";
 import Loading from "components/loading";
+import { getApiUrl } from '../../../config/api';
+
 
 const Clientes = () => {
   const { user } = useAuth();
@@ -59,7 +61,7 @@ const Clientes = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch("http://localhost:3000/api/clients", {
+      const response = await fetch(getApiUrl("/api/clients"), {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
@@ -89,7 +91,7 @@ const Clientes = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch("http://localhost:3000/api/locations/departments", {
+      const response = await fetch(getApiUrl("/api/locations/departments"), {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -116,7 +118,7 @@ const Clientes = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch(`http://localhost:3000/api/locations/cities/${departamento}`, {
+      const response = await fetch(getApiUrl(`/api/locations/cities/${departamento}`), {
         headers: {
           "Authorization": `Bearer ${token}`
         }
@@ -205,7 +207,7 @@ const Clientes = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch(`http://localhost:3000/api/clients/${selectedCliente.client_id}`, {
+      const response = await fetch(getApiUrl(`/api/clients/${selectedCliente.client_id}`), {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -303,7 +305,7 @@ const Clientes = () => {
         network_type: formData.tipo_red
       };
 
-      const response = await fetch("http://localhost:3000/api/clients", {
+      const response = await fetch(getApiUrl("/api/clients"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -422,7 +424,7 @@ const Clientes = () => {
         network_type: editFormData.tipo_red
       };
 
-      const response = await fetch(`http://localhost:3000/api/clients/${selectedCliente.client_id}`, {
+      const response = await fetch(getApiUrl(`/api/clients/${selectedCliente.client_id}`), {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -1093,4 +1095,4 @@ const Clientes = () => {
   );
 };
 
-export default Clientes; 
+export default Clientes;

@@ -1,7 +1,16 @@
 import React from "react";
-import { MdDescription, MdPeople, MdDevices, MdBusiness, MdAccountBalance, MdReceipt, MdSolarPower, MdBatteryChargingFull, MdStore } from "react-icons/md";
+import { MdDescription, MdPeople, MdDevices, MdBusiness, MdAccountBalance, MdReceipt, MdSolarPower, MdBatteryChargingFull, MdStore, MdDashboard, MdBugReport } from "react-icons/md";
+import Inicio from "views/admin/inicio/index";
 
 export const adminRoutes = [
+  {
+    name: "Inicio",
+    layout: "/admin",
+    path: "inicio",
+    icon: <MdDashboard className="h-6 w-6" />,
+    allowedRoles: ["administrador"],
+    component: Inicio
+  },
   // Sección Gestión comercial
   {
     section: "Gestión comercial"
@@ -11,28 +20,21 @@ export const adminRoutes = [
     icon: <MdBusiness className="h-6 w-6" />,
     layout: "/admin",
     path: "gestion-comercial",
-    allowedRoles: ["admin"],
+    allowedRoles: ["administrador"],
     submenu: [
       {
         name: "Clientes",
         layout: "/admin",
         path: "clientes",
         icon: <MdPeople className="h-5 w-5" />,
-        allowedRoles: ["admin"]
+        allowedRoles: ["administrador"]
       },
       {
         name: "Cotizaciones",
         layout: "/admin",
         path: "cotizaciones",
         icon: <MdDescription className="h-5 w-5" />,
-        allowedRoles: ["admin"]
-      },
-      {
-        name: "Propuestas",
-        layout: "/admin",
-        path: "propuestas",
-        icon: <MdDescription className="h-5 w-5" />,
-        allowedRoles: ["admin"]
+        allowedRoles: ["administrador"]
       },
       {
         name: "Equipos",
@@ -45,21 +47,21 @@ export const adminRoutes = [
             layout: "/admin",
             path: "paneles",
             icon: <MdSolarPower className="h-5 w-5" />,
-            allowedRoles: ["admin"]
+            allowedRoles: ["administrador"]
           },
           {
             name: "Inversores",
             layout: "/admin",
             path: "inversores",
             icon: <MdDevices className="h-5 w-5" />,
-            allowedRoles: ["admin"]
+            allowedRoles: ["administrador"]
           },
           {
             name: "Baterías",
             layout: "/admin",
             path: "baterias",
             icon: <MdBatteryChargingFull className="h-5 w-5" />,
-            allowedRoles: ["admin"]
+            allowedRoles: ["administrador"]
           }
         ]
       }
@@ -67,28 +69,28 @@ export const adminRoutes = [
   },
   // Sección Proyectos
   {
-    section: "Proyectos"
+    section: "Gestión técnica"
   },
   {
-    name: "Proyectos",
+    name: "Gestión técnica",
     layout: "/admin",
     path: "proyectos",
     icon: <MdAccountBalance className="h-6 w-6" />,
-    allowedRoles: ["admin"],
+    allowedRoles: ["administrador"],
     submenu: [
       {
         name: "Proyectos",
         layout: "/admin",
         path: "proyectos",
         icon: <MdAccountBalance className="h-5 w-5" />,
-        allowedRoles: ["admin"]
+        allowedRoles: ["administrador"]
       },
       {
         name: "Actividades",
         layout: "/admin",
         path: "actividades",
         icon: <MdDescription className="h-5 w-5" />,
-        allowedRoles: ["admin"]
+        allowedRoles: ["administrador"]
       },
       {
         name: "Actas",
@@ -101,24 +103,24 @@ export const adminRoutes = [
             layout: "/admin",
             path: "actas-visita",
             icon: <MdDescription className="h-5 w-5" />,
-            allowedRoles: ["admin"]
+            allowedRoles: ["administrador"]
           },
           {
             name: "Acta de entrega de proyecto",
             layout: "/admin",
             path: "acta-entrega-proyecto",
             icon: <MdDescription className="h-5 w-5" />,
-            allowedRoles: ["admin"]
+            allowedRoles: ["administrador"]
           },
           {
             name: "Acta de servicio",
             layout: "/admin",
             path: "acta-servicio",
             icon: <MdDescription className="h-5 w-5" />,
-            allowedRoles: ["admin"]
+            allowedRoles: ["administrador"]
           }
         ],
-        allowedRoles: ["admin"]
+        allowedRoles: ["administrador"]
       }
     ]
   },
@@ -127,39 +129,39 @@ export const adminRoutes = [
     section: "Contabilidad"
   },
   {
-    name: "Contabilidad",
+    name: "Gestión financiera",
     icon: <MdAccountBalance className="h-6 w-6" />,
     layout: "/admin",
     path: "contabilidad",
-    allowedRoles: ["admin"],
+    allowedRoles: ["administrador"],
     submenu: [
       {
         name: "Dashboard",
         layout: "/admin",
         path: "contabilidad/dashboard",
         icon: <MdAccountBalance className="h-5 w-5" />,
-        allowedRoles: ["admin"]
+        allowedRoles: ["administrador"]
       },
       {
         name: "Facturas",
         layout: "/admin",
         path: "contabilidad/facturas",
         icon: <MdReceipt className="h-5 w-5" />,
-        allowedRoles: ["admin"]
+        allowedRoles: ["administrador"]
       },
       {
         name: "Centros de Costo",
         layout: "/admin",
         path: "contabilidad/centros-costo",
         icon: <MdAccountBalance className="h-5 w-5" />,
-        allowedRoles: ["admin"]
+        allowedRoles: ["administrador"]
       },
       {
         name: "Proveedores",
         layout: "/admin",
         path: "contabilidad/proveedores",
         icon: <MdStore className="h-5 w-5" />,
-        allowedRoles: ["admin"]
+        allowedRoles: ["administrador"]
       }
     ]
   },
@@ -168,13 +170,13 @@ export const adminRoutes = [
     layout: "/admin",
     path: "usuarios",
     icon: <MdPeople className="h-5 w-5" />,
-    allowedRoles: ["admin"]
+    allowedRoles: ["administrador"]
   },
   {
     name: "Agente IA",
     layout: "/admin",
     path: "agente-ia",
     icon: <MdDescription className="h-5 w-5" />,
-    allowedRoles: ["admin"]
+    allowedRoles: ["administrador"]
   }
 ];

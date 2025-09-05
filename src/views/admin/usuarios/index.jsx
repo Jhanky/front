@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from "react";
 import Card from "components/card";
-import { MdAdd, MdEdit, MdDelete, MdSearch } from "react-icons/md";
+import { MdAdd, MdEdit, MdDelete, MdSearch, MdFilterList, MdClear, MdDownload, MdUpload } from "react-icons/md";
 import Modal from "components/modal";
 import { useAuth } from "context/AuthContext";
 import Mensaje from "components/mensaje";
 import Loading from "components/loading";
+import { 
+  getUsers, 
+  createUser, 
+  updateUser, 
+  deleteUser, 
+  uploadUserAvatar,
+  handleAuthError,
+  isAdmin 
+} from '../../../services/usuariosService';
+import { getAvailableRoles, canCreateUsers, canEditUsers, canDeleteUsers } from '../../../services/rolesService';
 
 const Usuarios = () => {
   const { user } = useAuth();
@@ -15,40 +25,48 @@ const Usuarios = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState(null);
-  const [search, setSearch] = useState("");
   const [mensajes, setMensajes] = useState([]);
+  
+         // Estados para filtros
+    const [search, setSearch] = useState("");
+    const [role, setRole] = useState("");
+    const [showFilters, setShowFilters] = useState(false);
+  
   const [formData, setFormData] = useState({
     nombre: "",
     email: "",
     contraseña: "",
-    id_rol: ""
+    id_rol: "",
+    phone: "",
+    job_title: ""
+  });
+
+  const [roles, setRoles] = useState([]);
+  const [userPermissions, setUserPermissions] = useState({
+    canCreate: false,
+    canEdit: false,
+    canDelete: false
   });
 
   useEffect(() => {
     fetchUsuarios();
-  }, []);
+    fetchRoles();
+    checkUserPermissions();
+  }, [role]);
 
   const fetchUsuarios = async () => {
     try {
       setLoading(true);
-      const token = user?.token;
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
+      setError(null);
+      
+      const filters = {};
+      if (role) filters.role = role;
+      if (search) filters.search = search;
 
-      const response = await fetch("http://localhost:3000/api/usuarios", {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error("Error al cargar los usuarios");
-      }
-
-      const data = await response.json();
-      setUsuarios(data);
+      const data = await getUsers(filters);
+      setUsuarios(data.data || data || []);
     } catch (error) {
+      handleAuthError(error);
       setError(error.message);
       setMensajes([{
         contenido: error.message,
@@ -59,12 +77,44 @@ const Usuarios = () => {
     }
   };
 
+  const fetchRoles = async () => {
+    try {
+      const rolesData = await getAvailableRoles();
+      setRoles(rolesData || []);
+    } catch (error) {
+      console.error('Error al cargar roles:', error);
+    }
+  };
+
+  const checkUserPermissions = async () => {
+    try {
+      const canCreate = await canCreateUsers();
+      const canEdit = await canEditUsers();
+      const canDelete = await canDeleteUsers();
+      
+      setUserPermissions({
+        canCreate,
+        canEdit,
+        canDelete
+      });
+    } catch (error) {
+      console.error('Error al verificar permisos:', error);
+    }
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setRole("");
+  };
+
   const handleCreate = () => {
     setFormData({
       nombre: "",
       email: "",
       contraseña: "",
-      id_rol: ""
+      id_rol: "",
+      phone: "",
+      job_title: ""
     });
     setIsCreateModalOpen(true);
   };
@@ -72,10 +122,12 @@ const Usuarios = () => {
   const handleEdit = (usuario) => {
     setSelectedUsuario(usuario);
     setFormData({
-      nombre: usuario.nombre,
+      nombre: usuario.name || usuario.nombre,
       email: usuario.email,
       contraseña: "",
-      id_rol: usuario.id_rol
+      id_rol: usuario.roles?.[0]?.id || usuario.id_rol,
+      phone: usuario.phone || "",
+      job_title: usuario.job_title || ""
     });
     setIsEditModalOpen(true);
   };
@@ -99,33 +151,25 @@ const Usuarios = () => {
     setMensajes([]);
 
     try {
-      const token = user?.token;
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
-
-      // Preparar los datos para enviar con el campo password correcto
-      const datosCreacion = {
-        nombre: formData.nombre,
+      // Preparar los datos para enviar según la especificación
+      const userData = {
+        name: formData.nombre,
+        username: formData.email.split('@')[0], // Generar username del email
         email: formData.email,
         password: formData.contraseña,
-        id_rol: parseInt(formData.id_rol)
+        phone: formData.phone,
+        job_title: formData.job_title || ""
       };
 
-      const response = await fetch("http://localhost:3000/api/usuarios", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(datosCreacion)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.mensaje || "Error al crear el usuario");
+      // Si se seleccionó un rol específico, agregarlo
+      if (formData.id_rol) {
+        const selectedRole = roles.find(r => r.id.toString() === formData.id_rol);
+        if (selectedRole) {
+          userData.role = selectedRole.name;
+        }
       }
+
+      await createUser(userData);
 
       setMensajes([{
         contenido: "Usuario creado exitosamente",
@@ -135,6 +179,7 @@ const Usuarios = () => {
       await fetchUsuarios();
       setIsCreateModalOpen(false);
     } catch (error) {
+      handleAuthError(error);
       setError(error.message);
       setMensajes([{
         contenido: error.message,
@@ -149,37 +194,29 @@ const Usuarios = () => {
     setMensajes([]);
 
     try {
-      const token = user?.token;
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
-
-      // Preparar los datos para enviar
-      const datosActualizacion = {
-        nombre: formData.nombre,
+      // Preparar los datos para enviar según la especificación
+      const userData = {
+        name: formData.nombre,
+        username: formData.email.split('@')[0], // Generar username del email
         email: formData.email,
-        id_rol: parseInt(formData.id_rol)
+        phone: formData.phone,
+        job_title: formData.job_title || ""
       };
 
       // Solo incluir la contraseña si se ha modificado
       if (formData.contraseña) {
-        datosActualizacion.password = formData.contraseña;
+        userData.password = formData.contraseña;
       }
 
-      const response = await fetch(`http://localhost:3000/api/usuarios/${selectedUsuario.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(datosActualizacion)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.mensaje || "Error al actualizar el usuario");
+      // Si se seleccionó un rol específico, agregarlo
+      if (formData.id_rol) {
+        const selectedRole = roles.find(r => r.id.toString() === formData.id_rol);
+        if (selectedRole) {
+          userData.role = selectedRole.name;
+        }
       }
+
+      await updateUser(selectedUsuario.id, userData);
 
       setMensajes([{
         contenido: "Usuario actualizado exitosamente",
@@ -189,6 +226,7 @@ const Usuarios = () => {
       await fetchUsuarios();
       setIsEditModalOpen(false);
     } catch (error) {
+      handleAuthError(error);
       setError(error.message);
       setMensajes([{
         contenido: error.message,
@@ -202,22 +240,7 @@ const Usuarios = () => {
     setMensajes([]);
 
     try {
-      const token = user?.token;
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
-
-      const response = await fetch(`http://localhost:3000/api/usuarios/${selectedUsuario.id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.mensaje || "Error al eliminar el usuario");
-      }
+      await deleteUser(selectedUsuario.id);
 
       setMensajes([{
         contenido: "Usuario eliminado exitosamente",
@@ -227,6 +250,7 @@ const Usuarios = () => {
       await fetchUsuarios();
       setIsDeleteModalOpen(false);
     } catch (error) {
+      handleAuthError(error);
       setError(error.message);
       setMensajes([{
         contenido: error.message,
@@ -235,10 +259,23 @@ const Usuarios = () => {
     }
   };
 
-  const filteredUsuarios = usuarios.filter(usuario => 
-    usuario.nombre?.toLowerCase().includes(search.toLowerCase()) ||
-    usuario.email?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Filtrar usuarios localmente
+  const filteredUsuarios = usuarios.filter(usuario => {
+    // Filtro por búsqueda general
+    const matchesSearch = 
+      usuario.name?.toLowerCase().includes(search.toLowerCase()) ||
+      usuario.email?.toLowerCase().includes(search.toLowerCase()) ||
+      usuario.phone?.includes(search);
+    
+    // Filtro por rol
+    const matchesRole = !role || usuario.roles?.some(r => r.name === role);
+    
+    return matchesSearch && matchesRole;
+  });
+
+
+
+
 
   if (loading) {
     return <Loading />;
@@ -253,7 +290,7 @@ const Usuarios = () => {
         />
         <button
           onClick={() => window.location.reload()}
-          className="rounded-lg bg-blue-600 px-6 py-2.5 text-white transition-colors hover:bg-blue-700"
+          className="rounded-lg bg-accent-primary px-6 py-2.5 text-white transition-colors hover:bg-accent-hover"
         >
           Reintentar
         </button>
@@ -266,30 +303,75 @@ const Usuarios = () => {
       <div className="col-span-1 h-fit w-full xl:col-span-2 2xl:col-span-3">
         <Card extra={"w-full h-full px-8 pb-8 sm:overflow-x-auto"}>
           <div className="flex items-center justify-between py-4">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+            <h1 className="text-2xl font-bold text-text-primary">
               Usuarios
             </h1>
-            <button
-              onClick={handleCreate}
-              className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-white hover:bg-green-700"
-            >
-              <MdAdd className="h-5 w-5" />
-              Nuevo Usuario
-            </button>
+            <div className="flex gap-2">
+              {userPermissions.canCreate && (
+                <button
+                  onClick={handleCreate}
+                  className="flex items-center gap-2 rounded-lg bg-accent-primary px-6 py-2.5 text-white hover:bg-accent-hover transition-colors"
+                >
+                  <MdAdd className="h-5 w-5" />
+                  Nuevo Usuario
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Barra de búsqueda */}
-          <div className="mb-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Buscar usuarios..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 pl-10 focus:border-green-500 focus:outline-none"
-              />
-              <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          {/* Barra de búsqueda y filtros */}
+          <div className="mb-4 space-y-4">
+            <div className="flex gap-4">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="Buscar usuarios..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full rounded-lg border border-text-disabled/30 px-4 py-2 pl-10 focus:border-accent-primary focus:outline-none bg-primary-card text-text-primary"
+                />
+                <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-disabled" />
+              </div>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2 rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-accent-primary/10 transition-colors"
+              >
+                <MdFilterList className="h-5 w-5" />
+                Filtros
+              </button>
+                             {(search || role) && (
+                 <button
+                   onClick={clearFilters}
+                   className="flex items-center gap-2 rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-accent-primary/10 transition-colors"
+                 >
+                   <MdClear className="h-5 w-5" />
+                   Limpiar
+                 </button>
+               )}
             </div>
+
+                                                   {/* Filtros expandibles */}
+              {showFilters && (
+                <div className="grid grid-cols-1 gap-4 rounded-lg border border-text-disabled/20 bg-primary-card p-4 md:grid-cols-1">
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Rol
+                    </label>
+                    <select
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                      className="w-full rounded-lg border border-text-disabled/30 px-3 py-2 focus:border-accent-primary focus:outline-none bg-primary-card text-text-primary"
+                    >
+                      <option value="">Todos</option>
+                      {roles.map((rol) => (
+                        <option key={rol.id} value={rol.name}>
+                          {rol.display_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
           </div>
 
           {/* Mensajes */}
@@ -305,225 +387,348 @@ const Usuarios = () => {
           <div className="mt-4 overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Nombre</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Email</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Rol</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Acciones</th>
+                <tr className="border-b border-text-disabled/20 bg-primary">
+                                                           <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Nombre</th>
+                     <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Email</th>
+                     <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Teléfono</th>
+                     <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Rol</th>
+                     <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Cargo</th>
+                     <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Acciones</th>
                 </tr>
               </thead>
-              <tbody>
-                {filteredUsuarios.map((usuario) => (
-                  <tr key={usuario.id} className="border-b border-gray-200">
-                    <td className="px-4 py-3 text-sm text-gray-800">{usuario.nombre}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{usuario.email}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">
-                      {usuario.id_rol === 1 ? "Administrador" : 
-                       usuario.id_rol === 2 ? "Vendedor" : 
-                       usuario.id_rol === 3 ? "Técnico" : "Usuario"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-800">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(usuario)}
-                          className="text-green-600 hover:text-green-700"
-                        >
-                          <MdEdit className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(usuario)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <MdDelete className="h-5 w-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+                             <tbody>
+                                    {filteredUsuarios.length === 0 ? (
+                     <tr>
+                       <td colSpan="6" className="px-4 py-8 text-center text-text-secondary">
+                         {search || role ? 
+                           "No se encontraron usuarios con los filtros aplicados" : 
+                           "No hay usuarios registrados"
+                         }
+                       </td>
+                     </tr>
+                   ) : (
+                   filteredUsuarios.map((usuario) => (
+                     <tr key={usuario.id} className="border-b border-text-disabled/20 hover:bg-accent-primary/10 transition-colors">
+                                                <td className="px-4 py-3 text-sm text-text-primary">
+                           <div className="flex items-center gap-3">
+                           {usuario.avatar && (
+                             <img
+                               src={usuario.avatar}
+                               alt={usuario.name}
+                               className="h-8 w-8 rounded-full object-cover"
+                             />
+                           )}
+                           <span>{usuario.name}</span>
+                         </div>
+                       </td>
+                                               <td className="px-4 py-3 text-sm text-text-primary">{usuario.email}</td>
+                        <td className="px-4 py-3 text-sm text-text-primary">{usuario.phone || "-"}</td>
+                                                 <td className="px-4 py-3 text-sm text-text-primary">
+                           {usuario.roles?.map(role => role.display_name || role.name).join(", ") || "-"}
+                         </td>
+                                                <td className="px-4 py-3 text-sm text-text-primary">
+                           {usuario.job_title || "-"}
+                         </td>
+                                                                       <td className="px-4 py-3 text-sm text-text-primary">
+                          <div className="flex gap-2">
+                            {userPermissions.canEdit && (
+                              <button
+                                onClick={() => handleEdit(usuario)}
+                                className="text-accent-primary hover:text-accent-hover transition-colors"
+                                title="Editar"
+                              >
+                                <MdEdit className="h-5 w-5" />
+                              </button>
+                            )}
+                            {userPermissions.canDelete && (
+                              <button
+                                onClick={() => handleDelete(usuario)}
+                                className="text-red-500 hover:text-red-400 transition-colors"
+                                title="Eliminar"
+                              >
+                                <MdDelete className="h-5 w-5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                   </tr>
+                 ))
+               )}
+             </tbody>
             </table>
+
+                         {/* Información de resultados */}
+             <div className="mt-6 flex items-center justify-between">
+                               <div className="text-sm text-text-secondary">
+                 Mostrando {filteredUsuarios.length} de {usuarios.length} usuarios
+               </div>
+             </div>
           </div>
         </Card>
       </div>
 
-      {/* Modal de Creación */}
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        title="Nuevo Usuario"
-      >
-        <div className="p-4">
-          <form onSubmit={handleCreateSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Nombre Completo
-              </label>
-              <input
-                type="text"
-                name="nombre"
-                value={formData.nombre}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                placeholder="Ingrese el nombre completo"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                placeholder="ejemplo@correo.com"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                name="contraseña"
-                value={formData.contraseña}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                placeholder="Ingrese la contraseña"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Rol
-              </label>
-              <select
-                name="id_rol"
-                value={formData.id_rol}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                required
-              >
-                <option value="">Seleccione un rol</option>
-                <option value="1">Administrador</option>
-                <option value="2">Vendedor</option>
-                <option value="3">Técnico</option>
-              </select>
-            </div>
-            {error && (
-              <div className="text-sm text-red-500">
-                {error}
-              </div>
-            )}
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700"
-              >
-                Guardar
-              </button>
-            </div>
-          </form>
-        </div>
-      </Modal>
+             {/* Modal de Creación */}
+       <Modal
+         isOpen={isCreateModalOpen}
+         onClose={() => setIsCreateModalOpen(false)}
+         title="Nuevo Usuario"
+       >
+         <div className="p-4">
+           <form onSubmit={handleCreateSubmit} className="space-y-4">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div>
+                 <label className="block text-sm font-medium text-text-secondary">
+                   Nombre Completo
+                 </label>
+                 <input
+                   type="text"
+                   name="nombre"
+                   value={formData.nombre}
+                   onChange={handleInputChange}
+                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
+                   placeholder="Ingrese el nombre completo"
+                   required
+                 />
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-text-secondary">
+                   Email
+                 </label>
+                 <input
+                   type="email"
+                   name="email"
+                   value={formData.email}
+                   onChange={handleInputChange}
+                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
+                   placeholder="ejemplo@energy4cero.com"
+                   required
+                 />
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-text-secondary">
+                   Teléfono
+                 </label>
+                 <input
+                   type="tel"
+                   name="phone"
+                   value={formData.phone}
+                   onChange={handleInputChange}
+                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
+                   placeholder="+573001234567"
+                 />
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-text-secondary">
+                   Cargo
+                 </label>
+                 <input
+                   type="text"
+                   name="job_title"
+                   value={formData.job_title}
+                   onChange={handleInputChange}
+                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
+                   placeholder="Desarrollador, Vendedor, etc."
+                 />
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-text-secondary">
+                   Rol
+                 </label>
+                 <select
+                   name="id_rol"
+                   value={formData.id_rol}
+                   onChange={handleInputChange}
+                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
+                   required
+                 >
+                   <option value="">Seleccione un rol</option>
+                   {roles.map((rol) => (
+                     <option key={rol.id} value={rol.id}>
+                       {rol.display_name}
+                     </option>
+                   ))}
+                 </select>
+               </div>
+             </div>
+             <div>
+               <label className="block text-sm font-medium text-text-secondary">
+                 Contraseña
+               </label>
+               <input
+                 type="password"
+                 name="contraseña"
+                 value={formData.contraseña}
+                 onChange={handleInputChange}
+                 className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
+                 placeholder="Ingrese la contraseña"
+                 required
+               />
+             </div>
+             <div className="flex items-center">
+               <input
+                 type="checkbox"
+                 name="is_active"
+                 checked={formData.is_active}
+                 onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
+                 className="h-4 w-4 text-accent-primary focus:ring-accent-primary border-text-disabled/30 rounded"
+               />
+               <label className="ml-2 block text-sm text-text-secondary">
+                 Usuario Activo
+               </label>
+             </div>
+             {error && (
+               <div className="text-sm text-red-400">
+                 {error}
+               </div>
+             )}
+             <div className="flex justify-end gap-2">
+               <button
+                 type="button"
+                 onClick={() => setIsCreateModalOpen(false)}
+                 className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-accent-primary/10 transition-colors"
+               >
+                 Cancelar
+               </button>
+               <button
+                 type="submit"
+                 className="rounded-lg bg-accent-primary px-4 py-2 text-white hover:bg-accent-hover transition-colors"
+               >
+                 Guardar
+               </button>
+             </div>
+           </form>
+         </div>
+       </Modal>
 
-      {/* Modal de Edición */}
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Editar Usuario"
-      >
-        <div className="p-4">
-          <form onSubmit={handleEditSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Nombre Completo
-              </label>
-              <input
-                type="text"
-                name="nombre"
-                value={formData.nombre}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                name="contraseña"
-                value={formData.contraseña}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                placeholder="Dejar en blanco para mantener la actual"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Rol
-              </label>
-              <select
-                name="id_rol"
-                value={formData.id_rol}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                required
-              >
-                <option value="">Seleccione un rol</option>
-                <option value="1">Administrador</option>
-                <option value="2">Vendedor</option>
-                <option value="3">Técnico</option>
-              </select>
-            </div>
-            {error && (
-              <div className="text-sm text-red-500">
-                {error}
-              </div>
-            )}
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsEditModalOpen(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700"
-              >
-                Guardar Cambios
-              </button>
-            </div>
-          </form>
-        </div>
-      </Modal>
+             {/* Modal de Edición */}
+       <Modal
+         isOpen={isEditModalOpen}
+         onClose={() => setIsEditModalOpen(false)}
+         title="Editar Usuario"
+       >
+         <div className="p-4">
+           <form onSubmit={handleEditSubmit} className="space-y-4">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div>
+                 <label className="block text-sm font-medium text-text-secondary">
+                   Nombre Completo
+                 </label>
+                 <input
+                   type="text"
+                   name="nombre"
+                   value={formData.nombre}
+                   onChange={handleInputChange}
+                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
+                   required
+                 />
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-text-secondary">
+                   Email
+                 </label>
+                 <input
+                   type="email"
+                   name="email"
+                   value={formData.email}
+                   onChange={handleInputChange}
+                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
+                   required
+                 />
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-text-secondary">
+                   Teléfono
+                 </label>
+                 <input
+                   type="tel"
+                   name="phone"
+                   value={formData.phone}
+                   onChange={handleInputChange}
+                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
+                   placeholder="+573001234567"
+                 />
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-text-secondary">
+                   Cargo
+                 </label>
+                 <input
+                   type="text"
+                   name="job_title"
+                   value={formData.job_title}
+                   onChange={handleInputChange}
+                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
+                   placeholder="Desarrollador, Vendedor, etc."
+                 />
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-text-secondary">
+                   Rol
+                 </label>
+                 <select
+                   name="id_rol"
+                   value={formData.id_rol}
+                   onChange={handleInputChange}
+                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
+                   required
+                 >
+                   <option value="">Seleccione un rol</option>
+                   {roles.map((rol) => (
+                     <option key={rol.id} value={rol.id}>
+                       {rol.display_name}
+                     </option>
+                   ))}
+                 </select>
+               </div>
+             </div>
+             <div>
+               <label className="block text-sm font-medium text-text-secondary">
+                 Contraseña
+               </label>
+               <input
+                 type="password"
+                 name="contraseña"
+                 value={formData.contraseña}
+                 onChange={handleInputChange}
+                 className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
+                 placeholder="Dejar en blanco para mantener la actual"
+               />
+             </div>
+             <div className="flex items-center">
+               <input
+                 type="checkbox"
+                 name="is_active"
+                 checked={formData.is_active}
+                 onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
+                 className="h-4 w-4 text-accent-primary focus:ring-accent-primary border-text-disabled/30 rounded"
+               />
+               <label className="ml-2 block text-sm text-text-secondary">
+                 Usuario Activo
+               </label>
+             </div>
+             {error && (
+               <div className="text-sm text-red-400">
+                 {error}
+               </div>
+             )}
+             <div className="flex justify-end gap-2">
+               <button
+                 type="button"
+                 onClick={() => setIsEditModalOpen(false)}
+                 className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-accent-primary/10 transition-colors"
+               >
+                 Cancelar
+               </button>
+               <button
+                 type="submit"
+                 className="rounded-lg bg-accent-primary px-4 py-2 text-white hover:bg-accent-hover transition-colors"
+               >
+                 Guardar Cambios
+               </button>
+             </div>
+           </form>
+         </div>
+       </Modal>
 
       {/* Modal de Eliminación */}
       <Modal
@@ -532,8 +737,8 @@ const Usuarios = () => {
         title="Eliminar Usuario"
       >
         <div className="p-4">
-          <p className="text-gray-600">
-            ¿Está seguro que desea eliminar al usuario {selectedUsuario?.nombre}?
+          <p className="text-text-secondary">
+            ¿Está seguro que desea eliminar al usuario {selectedUsuario?.name || selectedUsuario?.nombre}?
           </p>
           {error && (
             <div className="mt-4">
@@ -546,21 +751,23 @@ const Usuarios = () => {
           <div className="mt-4 flex justify-end gap-2">
             <button
               onClick={() => setIsDeleteModalOpen(false)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
+              className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-accent-primary/10 transition-colors"
             >
               Cancelar
             </button>
             <button
               onClick={handleDeleteConfirm}
-              className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+              className="rounded-lg bg-red-500 px-4 py-2 text-white hover:bg-red-600 transition-colors"
             >
               Eliminar
             </button>
           </div>
         </div>
       </Modal>
+
+      
     </div>
   );
 };
 
-export default Usuarios; 
+export default Usuarios;

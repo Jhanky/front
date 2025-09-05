@@ -1,229 +1,21 @@
 import React, { useState, useEffect } from "react";
 import Card from "components/card";
 import { MdAdd, MdEdit, MdDelete, MdDownload, MdSearch, MdInfo } from "react-icons/md";
-import Modal from "components/modal";
 import { useAuth } from "context/AuthContext";
 import Mensaje from "components/mensaje";
 import Loading from "components/loading";
 import { useNavigate } from "react-router-dom";
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { getApiUrl } from '../../../config/api';
+import { getApiUrl, getTechnicalSheetUrl } from '../../../config/api';
+import { cotizacionesService } from '../../../services/cotizacionesService';
 
-// Nuevo componente para el modal de edición
-function EditCotizacionModal({
-  isOpen,
-  onClose,
-  selectedCotizacion,
-  paneles,
-  inversores,
-  fetchCotizaciones,
-  setMensajes
-}) {
-  const [loading, setLoading] = useState(false);
-  const [statuses, setStatuses] = useState([]);
-  const [projectName, setProjectName] = useState("");
-  const [statusId, setStatusId] = useState("");
-  const [panelProduct, setPanelProduct] = useState({ product_id: "", quantity: "" });
-  const [inverterProduct, setInverterProduct] = useState({ product_id: "", quantity: "" });
-  const [batteryProduct, setBatteryProduct] = useState({ product_id: "", quantity: "" });
-  const [baterias, setBaterias] = useState([]);
+// Importar modales separados
+import CreateCotizacionModal from './CreateCotizacionModal';
+import EditCotizacionModal from './EditCotizacionModal';
+import DeleteCotizacionModal from './DeleteCotizacionModal';
 
-  // Utilidad para mapear tipos de producto de forma robusta
-  function getProductByType(products, type) {
-    if (!Array.isArray(products)) return null;
-    if (type === "panel") {
-      // Buscar por type: 'panel', 'Policristalino', 'Monocristalino', etc.
-      return products.find(p => {
-        const t = (p.type || p.product_type || "").toString().toLowerCase();
-        return ["panel", "policristalino", "monocristalino"].includes(t);
-      });
-    }
-    if (type === "inverter") {
-      return products.find(p => ((p.type || p.product_type || "").toString().toLowerCase() === "inverter"));
-    }
-    if (type === "battery") {
-      return products.find(p => ((p.type || p.product_type || "").toString().toLowerCase() === "battery"));
-    }
-    return null;
-  }
 
-  useEffect(() => {
-    if (isOpen && selectedCotizacion) {
-      setLoading(true);
-      Promise.all([
-        fetch("http://localhost:3000/api/quotation-statuses").then(res => res.json()),
-        fetch(`http://localhost:3000/api/quotations/${selectedCotizacion.id}`).then(res => res.json()),
-        fetch("http://localhost:3000/api/batteries").then(res => res.json()).then(data => data.batteries || [])
-      ]).then(([statusesData, cotizacionData, bateriasData]) => {
-        setStatuses(Array.isArray(statusesData) ? statusesData : []);
-        setProjectName(cotizacionData.project_name || "");
-        setStatusId(cotizacionData.status_id ? cotizacionData.status_id.toString() : "");
-        // Panel
-        const panel = getProductByType(cotizacionData.products, "panel");
-        setPanelProduct({
-          product_id: panel ? (panel.id || panel.product_id || "").toString() : "",
-          quantity: panel && panel.quantity ? panel.quantity.toString() : ""
-        });
-        // Inversor
-        const inverter = getProductByType(cotizacionData.products, "inverter");
-        setInverterProduct({
-          product_id: inverter ? (inverter.id || inverter.product_id || "").toString() : "",
-          quantity: inverter && inverter.quantity ? inverter.quantity.toString() : ""
-        });
-        // Batería
-        const battery = getProductByType(cotizacionData.products, "battery");
-        setBatteryProduct({
-          product_id: battery ? (battery.id || battery.product_id || "").toString() : "",
-          quantity: battery && battery.quantity ? battery.quantity.toString() : ""
-        });
-        setBaterias(bateriasData);
-      }).finally(() => setLoading(false));
-    }
-  }, [isOpen, selectedCotizacion]);
-
-  // Guardar cambios
-  const handleSave = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const products = [];
-      if (panelProduct.product_id && panelProduct.quantity) {
-        const panel = paneles.find(p => p.panel_id === parseInt(panelProduct.product_id));
-        products.push({
-          product_type: "panel",
-          product_id: parseInt(panelProduct.product_id),
-          quantity: parseInt(panelProduct.quantity),
-          unit_price: panel ? parseFloat(panel.price) : 0,
-          profit_percentage: 0.25
-        });
-      }
-      if (inverterProduct.product_id && inverterProduct.quantity) {
-        const inverter = inversores.find(i => i.inverter_id === parseInt(inverterProduct.product_id));
-        products.push({
-          product_type: "inverter",
-          product_id: parseInt(inverterProduct.product_id),
-          quantity: parseInt(inverterProduct.quantity),
-          unit_price: inverter ? parseFloat(inverter.price) : 0,
-          profit_percentage: 0.25
-        });
-      }
-      if (batteryProduct.product_id && batteryProduct.quantity) {
-        const battery = baterias.find(b => b.battery_id === parseInt(batteryProduct.product_id));
-        products.push({
-          product_type: "battery",
-          product_id: parseInt(batteryProduct.product_id),
-          quantity: parseInt(batteryProduct.quantity),
-          unit_price: battery ? parseFloat(battery.price) : 0,
-          profit_percentage: 0.25
-        });
-      }
-      const body = {
-        project_name: projectName,
-        status_id: parseInt(statusId),
-        panel_count: panelProduct.quantity ? parseInt(panelProduct.quantity) : 0,
-        products
-      };
-      const res = await fetch(`http://localhost:3000/api/quotations/${selectedCotizacion.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) throw new Error("Error al guardar cambios");
-      setMensajes([{ contenido: "Cotización editada exitosamente", tipo: "success" }]);
-      onClose();
-      fetchCotizaciones();
-    } catch (e) {
-      setMensajes([{ contenido: e.message, tipo: "error" }]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Editar Cotización">
-      <div className="p-4">
-        {loading ? (
-          <div className="text-center py-8">Cargando...</div>
-        ) : (
-          <form className="space-y-6" onSubmit={handleSave}>
-            <h3 className="text-lg font-semibold text-gray-800">Información Básica</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Nombre del Proyecto</label>
-                <input type="text" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" value={projectName} onChange={e => setProjectName(e.target.value)} required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Estado</label>
-                <select className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" value={statusId} onChange={e => setStatusId(e.target.value)} required>
-                  <option value="">Seleccione un estado</option>
-                  {Array.isArray(statuses) && statuses.map(s => (
-                    <option key={s.status_id} value={s.status_id}>{s.status_name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-800 mt-6">Productos</h3>
-            <div className="space-y-4">
-              {/* Panel */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-end bg-gray-50 rounded-lg p-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600">Panel</label>
-                  <select className="w-full rounded-md border border-gray-300 px-3 py-2" value={panelProduct.product_id} onChange={e => setPanelProduct(p => ({ ...p, product_id: e.target.value }))} required>
-                    <option value="">Seleccione un panel</option>
-                    {paneles.map(panel => (
-                      <option key={panel.panel_id} value={panel.panel_id}>{panel.brand} - {panel.model} - {panel.power}W</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600">Cantidad de Paneles</label>
-                  <input type="number" className="w-full rounded-md border border-gray-300 px-3 py-2" value={panelProduct.quantity} onChange={e => setPanelProduct(p => ({ ...p, quantity: e.target.value }))} min="1" required />
-                </div>
-              </div>
-              {/* Inversor */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-end bg-gray-50 rounded-lg p-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600">Inversor</label>
-                  <select className="w-full rounded-md border border-gray-300 px-3 py-2" value={inverterProduct.product_id} onChange={e => setInverterProduct(p => ({ ...p, product_id: e.target.value }))} required>
-                    <option value="">Seleccione un inversor</option>
-                    {inversores.map(inv => (
-                      <option key={inv.inverter_id} value={inv.inverter_id}>{inv.brand} - {inv.model} - {inv.power}kW</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600">Cantidad de Inversores</label>
-                  <input type="number" className="w-full rounded-md border border-gray-300 px-3 py-2" value={inverterProduct.quantity} onChange={e => setInverterProduct(p => ({ ...p, quantity: e.target.value }))} min="1" required />
-                </div>
-              </div>
-              {/* Batería */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-end bg-gray-50 rounded-lg p-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600">Batería</label>
-                  <select className="w-full rounded-md border border-gray-300 px-3 py-2" value={batteryProduct.product_id} onChange={e => setBatteryProduct(p => ({ ...p, product_id: e.target.value }))}>
-                    <option value="">Seleccione una batería</option>
-                    {baterias.map(bat => (
-                      <option key={bat.battery_id} value={bat.battery_id}>{bat.brand} - {bat.model} - {bat.capacity}Ah</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600">Cantidad de Baterías</label>
-                  <input type="number" className="w-full rounded-md border border-gray-300 px-3 py-2" value={batteryProduct.quantity} onChange={e => setBatteryProduct(p => ({ ...p, quantity: e.target.value }))} min="1" />
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button type="button" className="px-4 py-2 rounded bg-gray-200" onClick={onClose} disabled={loading}>Cancelar</button>
-              <button type="submit" className="px-4 py-2 rounded bg-green-600 text-white" disabled={loading}>{loading ? "Guardando..." : "Guardar"}</button>
-            </div>
-          </form>
-        )}
-      </div>
-    </Modal>
-  );
-}
 
 const Cotizaciones = () => {
   const { user } = useAuth();
@@ -232,13 +24,18 @@ const Cotizaciones = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [mensajes, setMensajes] = useState([]);
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    total: 0,
+    per_page: 15,
+    last_page: 1
+  });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedCotizacion, setSelectedCotizacion] = useState(null);
-  const [cotizacionDetalles, setCotizacionDetalles] = useState(null);
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("sin-financiamiento"); // "sin-financiamiento" o "con-financiamiento"
   const [productos, setProductos] = useState([]);
   const [items, setItems] = useState([]);
   const [clientes, setClientes] = useState([]);
@@ -257,6 +54,35 @@ const Cotizaciones = () => {
   const [cantidadPaneles, setCantidadPaneles] = useState(0);
   const [seccionActual, setSeccionActual] = useState(1);
 
+  // Función para limpiar el formulario
+  const limpiarFormulario = () => {
+    setClienteSeleccionado(null);
+    setSearchCliente("");
+    setShowClienteDropdown(false);
+    setNombreProyecto("");
+    setPotenciaKW("");
+    setTipoSistema("");
+    setTipoRed("");
+    setPanelSeleccionado(null);
+    setInversorSeleccionado(null);
+    setCantidadPaneles(0);
+    setCantidadInversores("");
+    setRequiereFinanciamiento(false);
+    setValorTramites("");
+    setValorManoObra("");
+    setValorEstructura("");
+    setValorMaterialElectrico("");
+    setValorSobreestructura("");
+    setPorcentajeGestionComercial("");
+    setPorcentajeImprevistos("");
+    setPorcentajeRetencion("");
+    setPorcentajeAdministracion("");
+    setPorcentajeUtilidad("");
+    setCostoLegalizacion("");
+    setPorcentajeLegalizacion("");
+    setSeccionActual(1);
+  };
+
   // Estados para valores monetarios
   const [valorTramites, setValorTramites] = useState("7000000");
   const [valorManoObra, setValorManoObra] = useState("200000");
@@ -270,12 +96,14 @@ const Cotizaciones = () => {
   const [porcentajeRetencion, setPorcentajeRetencion] = useState("3.5");
   const [porcentajeAdministracion, setPorcentajeAdministracion] = useState("8");
   const [porcentajeUtilidad, setPorcentajeUtilidad] = useState("5");
+  const [costoLegalizacion, setCostoLegalizacion] = useState("2500000");
+  const [porcentajeLegalizacion, setPorcentajeLegalizacion] = useState("25");
   const [requiereFinanciamiento, setRequiereFinanciamiento] = useState(false);
   const [nombreProyecto, setNombreProyecto] = useState("");
   const [usuarioLogueado, setUsuarioLogueado] = useState(null);
 
   // Estados para carga de detalles
-  const [loadingDetalles, setLoadingDetalles] = useState(false);
+
 
   // 1. Agregar estados para batería
   const [bateriaSeleccionada, setBateriaSeleccionada] = useState(null);
@@ -285,11 +113,16 @@ const Cotizaciones = () => {
   // 2. Cargar baterías si el sistema no es Interconectado
   useEffect(() => {
     if (tipoSistema && tipoSistema !== "Interconectado") {
-      fetch("http://localhost:3000/api/batteries", {
+      fetch(getApiUrl("/api/batteries"), {
         headers: { "Authorization": `Bearer ${user.token}` }
       })
         .then(res => res.json())
-        .then(data => setBaterias(data.batteries || []))
+        .then(data => {
+  
+          // Extraer las baterías de la estructura de respuesta correcta
+          const bateriasData = data.success && data.data && data.data.data ? data.data.data : [];
+          setBaterias(Array.isArray(bateriasData) ? bateriasData : []);
+        })
         .catch(() => setBaterias([]));
     }
   }, [tipoSistema, user.token]);
@@ -302,7 +135,7 @@ const Cotizaciones = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch("http://localhost:3000/api/users/me/id", {
+      const response = await fetch(getApiUrl("/api/users/me/id"), {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -315,7 +148,7 @@ const Cotizaciones = () => {
       }
 
       const data = await response.json();
-      console.log("Datos del usuario logueado:", data);
+      
       
       // Crear objeto con la estructura esperada
       const usuarioData = {
@@ -345,36 +178,34 @@ const Cotizaciones = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch(getApiUrl(`/api/quotations?page=${page}`), {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
+      const response = await cotizacionesService.getCotizaciones({ page }, token);
+      
+      if (response.success) {
+        // La respuesta ya viene formateada correctamente desde el servicio
+        setCotizaciones(Array.isArray(response.data) ? response.data : []);
+        
+        // Configurar paginación si está disponible
+        if (response.pagination) {
+          setPagination(response.pagination);
         }
-      });
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error("No se encontró el servicio de cotizaciones. Por favor, verifique que el servidor esté funcionando.");
-        }
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      } else {
+        throw new Error(response.message || "Error al cargar cotizaciones");
       }
-
-      const data = await response.json();
-      
-      // Adaptar a la nueva estructura con paginación
-      setCotizaciones(Array.isArray(data.data) ? data.data : []);
-      
-      // Si necesitas manejar paginación, puedes agregar estos estados:
-      // setCurrentPage(data.current_page);
-      // setTotalPages(data.last_page);
-      // setTotal(data.total);
       
       setError(null);
     } catch (error) {
+      console.error('Error al cargar cotizaciones:', error);
       setError(error.message);
       setCotizaciones([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Función para manejar cambio de página
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= pagination.last_page) {
+      fetchCotizaciones(newPage);
     }
   };
 
@@ -383,16 +214,25 @@ const Cotizaciones = () => {
     fetchCotizaciones();
   }, []);
 
-  // Filtrar cotizaciones basado en la búsqueda
+  // Filtrar cotizaciones basado en la búsqueda y el tipo de financiamiento
   const filteredCotizaciones = cotizaciones.filter(cotizacion => {
     const searchLower = search.toLowerCase();
-    return (
+    const matchesSearch = (
       cotizacion.project_name?.toLowerCase().includes(searchLower) ||
       cotizacion.client?.name?.toLowerCase().includes(searchLower) ||
       cotizacion.client?.city?.toLowerCase().includes(searchLower) ||
       cotizacion.user?.name?.toLowerCase().includes(searchLower) ||
       cotizacion.system_type?.toLowerCase().includes(searchLower)
     );
+    
+    // Filtrar por tipo de financiamiento
+    const requiresFinancing = cotizacion.requires_financing === true || cotizacion.requires_financing === 1;
+    
+    if (activeTab === "sin-financiamiento") {
+      return matchesSearch && !requiresFinancing;
+    } else {
+      return matchesSearch && requiresFinancing;
+    }
   });
 
   const handleCreate = () => {
@@ -416,35 +256,28 @@ const Cotizaciones = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch(getApiUrl(`/api/quotations/${selectedCotizacion.quotation_id}`), {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
+      const response = await cotizacionesService.deleteCotizacion(selectedCotizacion.quotation_id, token);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Error al eliminar la cotización");
+      if (response.success) {
+        // Actualizar estado local dinámicamente
+        setCotizaciones(prev => prev.filter(c => c.quotation_id !== selectedCotizacion.quotation_id));
+        
+        // Cerrar el modal
+        setIsDeleteModalOpen(false);
+        
+        // Mostrar mensaje de éxito
+        setMensajes([{
+          contenido: "Cotización eliminada exitosamente",
+          tipo: "success"
+        }]);
+        
+        // Limpiar mensaje después de 2 segundos
+        setTimeout(() => {
+          setMensajes([]);
+        }, 2000);
+      } else {
+        throw new Error(response.message || "Error al eliminar la cotización");
       }
-
-      // Actualizar estado local dinámicamente
-      setCotizaciones(prev => prev.filter(c => c.quotation_id !== selectedCotizacion.quotation_id));
-      
-      // Cerrar el modal
-      setIsDeleteModalOpen(false);
-      
-      // Mostrar mensaje de éxito
-      setMensajes([{
-        contenido: "Cotización eliminada exitosamente",
-        tipo: "success"
-      }]);
-      
-      // Limpiar mensaje después de 2 segundos
-      setTimeout(() => {
-        setMensajes([]);
-      }, 2000);
       
     } catch (error) {
       console.error("Error al eliminar la cotización:", error);
@@ -475,7 +308,7 @@ const Cotizaciones = () => {
       }]);
 
       // Llama al endpoint de tu backend para obtener el PDF
-      const response = await fetch(`http://localhost:3000/api/quotations/${cotizacion.id}/pdfkit`, {
+      const response = await fetch(getApiUrl(`/api/quotations/${cotizacion.id}/pdfkit`), {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -622,6 +455,8 @@ const Cotizaciones = () => {
         administration_percentage: 0.03,
         contingency_percentage: 0.02,
         withholding_percentage: 0.025,
+        legalization_cost: 2500000,
+        legalization_cost_percentage: 0.25,
         products: [
           {
             product_type: "panel",
@@ -681,9 +516,9 @@ const Cotizaciones = () => {
         ]
       };
 
-      console.log("JSON que se está enviando:", JSON.stringify(cotizacionData, null, 2));
       
-      const response = await fetch("http://localhost:3000/api/quotations", {
+      
+      const response = await fetch(getApiUrl("/api/quotations"), {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -698,10 +533,11 @@ const Cotizaciones = () => {
       }
 
       const data = await response.json();
-      console.log("Respuesta del servidor:", data);
+      
       
       // Cerrar modal y limpiar formulario
       setIsCreateModalOpen(false);
+      limpiarFormulario();
       
       // Recargar la lista de cotizaciones
       await fetchCotizaciones();
@@ -727,6 +563,8 @@ const Cotizaciones = () => {
       setPorcentajeRetencion("3.5");
       setPorcentajeAdministracion("8");
       setPorcentajeUtilidad("5");
+      setCostoLegalizacion("2500000");
+      setPorcentajeLegalizacion("25");
       setRequiereFinanciamiento(false);
 
       // Mostrar mensaje de éxito
@@ -835,19 +673,36 @@ const Cotizaciones = () => {
   // Función para cargar todos los clientes
   const cargarClientes = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/clients", {
+      const token = user?.token;
+      
+      if (!token) {
+        throw new Error("No hay token de autenticación");
+      }
+
+      const response = await fetch(getApiUrl("/api/clients"), {
         headers: {
-          "Authorization": `Bearer ${user.token}`
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
         }
       });
 
       if (!response.ok) {
-        throw new Error("Error al cargar los clientes");
+        if (response.status === 401) {
+          throw new Error("No autorizado. Por favor, inicie sesión nuevamente.");
+        }
+        if (response.status === 404) {
+          throw new Error("No se encontró el servicio de clientes. Por favor, verifique que el servidor esté funcionando.");
+        }
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
-      setClientes(data);
+      
+      // Extraer los clientes de la estructura de respuesta correcta
+      const clientesData = data.success && data.data && data.data.data ? data.data.data : [];
+      setClientes(Array.isArray(clientesData) ? clientesData : []);
     } catch (error) {
+      console.error("Error al cargar clientes:", error);
       setError(error.message);
       setClientes([]);
     }
@@ -855,8 +710,10 @@ const Cotizaciones = () => {
 
   // Cargar clientes al montar el componente
   useEffect(() => {
-    cargarClientes();
-  }, []);
+    if (user?.token) {
+      cargarClientes();
+    }
+  }, [user]);
 
   // Función para calcular el número de paneles
   const calcularNumeroPaneles = (potenciaKW, potenciaPanel) => {
@@ -886,52 +743,103 @@ const Cotizaciones = () => {
   // Función para cargar paneles
   const cargarPaneles = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/panels", {
+      const token = user?.token;
+      
+      if (!token) {
+        throw new Error("No hay token de autenticación");
+      }
+
+      const response = await fetch(getApiUrl("/api/panels"), {
         headers: {
-          "Authorization": `Bearer ${user.token}`
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
         }
       });
 
       if (!response.ok) {
-        throw new Error("Error al cargar los paneles");
+        if (response.status === 401) {
+          throw new Error("No autorizado. Por favor, inicie sesión nuevamente.");
+        }
+        if (response.status === 404) {
+          throw new Error("No se encontró el servicio de paneles. Por favor, verifique que el servidor esté funcionando.");
+        }
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
-      setPaneles(data);
+      
+      // Extraer los paneles de la estructura de respuesta correcta
+      const panelesData = data.success && data.data && data.data.data ? data.data.data : [];
+      setPaneles(Array.isArray(panelesData) ? panelesData : []);
     } catch (error) {
+      console.error("Error al cargar paneles:", error);
       setError(error.message);
+      setPaneles([]);
     }
   };
 
   // Cargar paneles al montar el componente
   useEffect(() => {
-    cargarPaneles();
-  }, []);
+    if (user?.token) {
+      cargarPaneles();
+    }
+  }, [user]);
 
   // Función para cargar inversores
   const cargarInversores = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/inverters", {
+              const token = user?.token;
+      
+      if (!token) {
+        throw new Error("No hay token de autenticación");
+      }
+
+      const url = getApiUrl("/api/inverters");
+              const response = await fetch(url, {
         headers: {
-          "Authorization": `Bearer ${user.token}`
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
         }
       });
 
+      
+
       if (!response.ok) {
-        throw new Error("Error al cargar los inversores");
+        if (response.status === 401) {
+          throw new Error("No autorizado. Por favor, inicie sesión nuevamente.");
+        }
+        if (response.status === 404) {
+          throw new Error("No se encontró el servicio de inversores. Por favor, verifique que el servidor esté funcionando.");
+        }
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
-      setInversores(data);
+      
+      // Intentar diferentes estructuras de respuesta
+      let inversoresData = [];
+      if (data.success && data.data && data.data.data) {
+        inversoresData = data.data.data;
+      } else if (data.data && Array.isArray(data.data)) {
+        inversoresData = data.data;
+      } else if (Array.isArray(data)) {
+        inversoresData = data;
+      }
+      
+      setInversores(Array.isArray(inversoresData) ? inversoresData : []);
     } catch (error) {
+      console.error("=== ERROR AL CARGAR INVERSORES ===", error);
       setError(error.message);
+      setInversores([]);
     }
   };
 
   // Cargar inversores al montar el componente
   useEffect(() => {
-    cargarInversores();
-  }, []);
+    if (user?.token) {
+      cargarInversores();
+    }
+  }, [user]);
 
   // Cerrar dropdown de clientes cuando se hace clic fuera
   useEffect(() => {
@@ -949,18 +857,32 @@ const Cotizaciones = () => {
 
   // Filtrar inversores según tipo de red y potencia
   const inversoresFiltrados = inversores.filter(inversor => {
-    if (!tipoRed) return false;
-    if (!potenciaKW) return false;
+    if (!tipoRed) {
+      return false;
+    }
+    if (!potenciaKW) {
+      return false;
+    }
     
     const potenciaMaxima = parseFloat(potenciaKW) * 1.3;
-    return inversor.grid_type === tipoRed && inversor.power <= potenciaMaxima;
+    // Usar los campos correctos de la API: grid_type y power
+    // Si estos campos no existen, verificar system_type y power_rating
+    const gridType = inversor.grid_type || inversor.system_type;
+    const power = inversor.power || inversor.power_rating || inversor.capacity;
+    
+    return gridType === tipoRed && parseFloat(power) <= potenciaMaxima;
   });
+  
+  
 
   // Función para filtrar clientes basado en la búsqueda
   const clientesFiltrados = clientes.filter(cliente => 
     cliente.name?.toLowerCase().includes(searchCliente.toLowerCase()) ||
     cliente.nic?.toLowerCase().includes(searchCliente.toLowerCase())
   );
+  
+  
+  
 
   // Actualizar el modal de creación para usar búsqueda de clientes
   const renderSeleccionCliente = () => (
@@ -1078,7 +1000,7 @@ const Cotizaciones = () => {
           <option value="">Seleccione un inversor</option>
           {inversoresFiltrados.map((inversor) => (
             <option key={inversor.inverter_id} value={inversor.inverter_id}>
-              {inversor.brand} - {inversor.model} - {inversor.power}kW
+              {inversor.brand} - {inversor.model} - {inversor.power || inversor.power_rating || inversor.capacity || 'N/A'}kW
             </option>
           ))}
         </select>
@@ -1166,38 +1088,8 @@ const Cotizaciones = () => {
   };
 
   const handleViewDetails = async (cotizacion) => {
-    try {
-      setLoadingDetalles(true);
-      const token = user?.token;
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
-
-      const response = await fetch(getApiUrl(`/api/quotations/${cotizacion.quotation_id}`), {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Error al obtener los detalles de la cotización");
-      }
-
-      const data = await response.json();
-      setCotizacionDetalles(data);
-      setIsDetailsModalOpen(true);
-    } catch (error) {
-      console.error("Error al obtener detalles:", error);
-      setError(error.message);
-      setMensajes([{
-        contenido: error.message,
-        tipo: "error"
-      }]);
-    } finally {
-      setLoadingDetalles(false);
-    }
+    // Navegar a la página de detalles en lugar de abrir modal
+    navigate(`/admin/cotizaciones/${cotizacion.quotation_id}`);
   };
 
   // Función para editar cotización
@@ -1249,6 +1141,8 @@ const Cotizaciones = () => {
         administration_percentage: parseFloat(porcentajeAdministracion) / 100,
         contingency_percentage: parseFloat(porcentajeImprevistos) / 100,
         withholding_percentage: parseFloat(porcentajeRetencion) / 100,
+        legalization_cost: parseFloat(costoLegalizacion) || 2500000,
+        legalization_cost_percentage: parseFloat(porcentajeLegalizacion) / 100 || 0.25,
         products: [
           {
             product_type: "panel",
@@ -1358,6 +1252,8 @@ const Cotizaciones = () => {
       setPorcentajeRetencion(selectedCotizacion.porcentaje_retenciones !== undefined ? (selectedCotizacion.porcentaje_retenciones * 100).toString() : "");
       setPorcentajeAdministracion(selectedCotizacion.porcentaje_administracion !== undefined ? (selectedCotizacion.porcentaje_administracion * 100).toString() : "");
       setPorcentajeUtilidad(selectedCotizacion.porcentaje_utilidad !== undefined ? (selectedCotizacion.porcentaje_utilidad * 100).toString() : "");
+      setCostoLegalizacion(selectedCotizacion.legalization_cost !== undefined ? selectedCotizacion.legalization_cost.toString() : "2500000");
+      setPorcentajeLegalizacion(selectedCotizacion.legalization_cost_percentage !== undefined ? (selectedCotizacion.legalization_cost_percentage * 100).toString() : "25");
       // Panel e inversor seleccionados
       if (paneles.length > 0 && selectedCotizacion.productos) {
         const panel = paneles.find(p => p.id_panel === selectedCotizacion.productos.find(prod => prod.tipo_producto === "panel")?.id_producto);
@@ -1422,7 +1318,7 @@ const Cotizaciones = () => {
   useEffect(() => {
     const token = user?.token;
     if (!token) return;
-    fetch("http://localhost:3000/api/quotation-statuses", {
+    fetch(getApiUrl("/api/quotation-statuses"), {
       headers: {
         "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json"
@@ -1436,19 +1332,22 @@ const Cotizaciones = () => {
   // 3. Función para actualizar el estado de una cotización
   const handleEstadoChange = async (cotizacion, newStatusId) => {
     try {
-      const body = { status_id: parseInt(newStatusId) };
       const token = user?.token;
-      console.log('PUT /api/quotations/' + cotizacion.id, body, token);
-      const res = await fetch(getApiUrl(`/api/quotations/${cotizacion.quotation_id}`), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) throw new Error("Error al actualizar el estado");
-      setMensajes([{ contenido: "Estado actualizado exitosamente", tipo: "success" }]);
-      fetchCotizaciones();
-    } catch (e) {
-      setMensajes([{ contenido: e.message, tipo: "error" }]);
+      if (!token) {
+        throw new Error("No hay token de autenticación");
+      }
+
+      const response = await cotizacionesService.changeCotizacionStatus(cotizacion.quotation_id, parseInt(newStatusId), token);
+      
+      if (response.success) {
+        setMensajes([{ contenido: "Estado actualizado exitosamente", tipo: "success" }]);
+        fetchCotizaciones();
+      } else {
+        throw new Error(response.message || "Error al actualizar el estado");
+      }
+    } catch (error) {
+      console.error("Error al actualizar estado:", error);
+      setMensajes([{ contenido: error.message, tipo: "error" }]);
     }
   };
 
@@ -1456,19 +1355,19 @@ const Cotizaciones = () => {
   function getEstadoColorClass(statusId) {
     switch (parseInt(statusId)) {
       case 1: // Pendiente
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        return 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30';
       case 2: // Enviada
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-blue-500/20 text-blue-500 border-blue-500/30';
       case 3: // Aprobada
-        return 'bg-green-100 text-green-800 border-green-300';
+        return 'bg-accent-primary/20 text-accent-primary border-accent-primary/30';
       case 4: // Rechazada
-        return 'bg-red-100 text-red-800 border-red-300';
+        return 'bg-red-500/20 text-red-500 border-red-500/30';
       case 5: // Cancelada
-        return 'bg-gray-200 text-gray-700 border-gray-300';
+        return 'bg-text-disabled/20 text-text-secondary border-text-disabled/30';
       case 6: // Vencida
-        return 'bg-orange-100 text-orange-800 border-orange-300';
+        return 'bg-orange-500/20 text-orange-500 border-orange-500/30';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+        return 'bg-text-disabled/20 text-text-secondary border-text-disabled/30';
     }
   }
 
@@ -1485,7 +1384,7 @@ const Cotizaciones = () => {
         />
         <button
           onClick={() => window.location.reload()}
-          className="rounded-lg bg-blue-600 px-6 py-2.5 text-white transition-colors hover:bg-blue-700"
+          className="rounded-lg bg-accent-primary px-6 py-2.5 text-white transition-colors hover:bg-accent-hover"
         >
           Reintentar
         </button>
@@ -1526,16 +1425,55 @@ const Cotizaciones = () => {
         
         <Card extra={"w-full h-full px-8 pb-8 sm:overflow-x-auto"}>
           <div className="flex items-center justify-between py-4">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-              Cotizaciones
-            </h1>
+            <div>
+              <h1 className="text-2xl font-bold text-text-primary">
+                Cotizaciones
+              </h1>
+              <p className="text-sm text-text-secondary mt-1">
+                {activeTab === "sin-financiamiento" ? "Sin Financiamiento" : "Con Financiamiento"}
+              </p>
+            </div>
             <button
               onClick={handleCreate}
-              className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-white hover:bg-green-700"
+              className="flex items-center gap-2 rounded-lg bg-accent-primary px-6 py-2.5 text-white hover:bg-accent-hover transition-colors"
             >
               <MdAdd className="h-5 w-5" />
               Nueva Cotización
             </button>
+          </div>
+
+          {/* Pestañas de financiamiento */}
+          <div className="mb-6">
+            <div className="border-b border-text-disabled/20">
+              <nav className="-mb-px flex space-x-8">
+                <button
+                  onClick={() => setActiveTab("sin-financiamiento")}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === "sin-financiamiento"
+                      ? "border-accent-primary text-accent-primary"
+                      : "border-transparent text-text-secondary hover:text-text-primary hover:border-text-disabled/30"
+                  }`}
+                >
+                  Sin Financiamiento
+                  <span className="ml-2 bg-primary-card text-text-primary py-0.5 px-2.5 rounded-full text-xs font-medium">
+                    {cotizaciones.filter(c => !(c.requires_financing === true || c.requires_financing === 1)).length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("con-financiamiento")}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === "con-financiamiento"
+                      ? "border-accent-primary text-accent-primary"
+                      : "border-transparent text-text-secondary hover:text-text-primary hover:border-text-disabled/30"
+                  }`}
+                >
+                  Con Financiamiento
+                  <span className="ml-2 bg-primary-card text-text-primary py-0.5 px-2.5 rounded-full text-xs font-medium">
+                    {cotizaciones.filter(c => c.requires_financing === true || c.requires_financing === 1).length}
+                  </span>
+                </button>
+              </nav>
+            </div>
           </div>
 
           {/* Barra de búsqueda */}
@@ -1547,9 +1485,9 @@ const Cotizaciones = () => {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar por nombre del proyecto o ID..."
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 pl-10 focus:border-green-500 focus:outline-none"
+                  className="w-full rounded-lg border border-text-disabled/30 px-4 py-2 pl-10 focus:border-accent-primary focus:outline-none bg-primary-card text-text-primary"
                 />
-                <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-disabled" />
               </div>
             </form>
           </div>
@@ -1558,34 +1496,34 @@ const Cotizaciones = () => {
           <div className="mt-4 overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">ID</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Nombre del Proyecto</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Tipo de Sistema</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Potencia (kWp)</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Valor Total</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Ciudad</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Estado</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Usuario</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Acciones</th>
+                <tr className="border-b border-text-disabled/20 bg-primary">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">ID</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Nombre del Proyecto</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Tipo de Sistema</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Potencia (kWp)</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Valor Total</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Ciudad</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Estado</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Usuario</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredCotizaciones.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="px-4 py-3 text-center text-sm text-gray-500">
-                      No se encontraron cotizaciones
+                    <td colSpan="10" className="px-4 py-3 text-center text-sm text-text-secondary">
+                      No se encontraron cotizaciones {activeTab === "sin-financiamiento" ? "sin financiamiento" : "con financiamiento"}
                     </td>
                   </tr>
                 ) : (
                   filteredCotizaciones.map((cotizacion) => (
-                    <tr key={cotizacion.quotation_id} className="border-b border-gray-200">
-                      <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.quotation_id}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.project_name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.system_type}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.power_kwp} kWp</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{formatNumber(cotizacion.total_value)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.client?.city}</td>
+                    <tr key={cotizacion.quotation_id} className="border-b border-text-disabled/20 hover:bg-accent-primary/10 transition-colors">
+                      <td className="px-4 py-3 text-sm text-text-primary">{cotizacion.quotation_id}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{cotizacion.project_name}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{cotizacion.system_type}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{cotizacion.power_kwp} kWp</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{formatNumber(cotizacion.total_value)}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{cotizacion.client?.city}</td>
                       <td className="px-4 py-3 text-sm">
                         <select
                           className={`rounded-full px-2 py-1 text-xs font-semibold border focus:outline-none ${getEstadoColorClass(cotizacion.status?.status_id || cotizacion.status_id)}`}
@@ -1599,19 +1537,19 @@ const Cotizaciones = () => {
                           ))}
                         </select>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{cotizacion.user?.name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">
+                      <td className="px-4 py-3 text-sm text-text-primary">{cotizacion.user?.name}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleViewDetails(cotizacion)}
-                            className="rounded-lg bg-blue-100 p-2 text-blue-600 hover:bg-blue-200"
+                            className="rounded-lg bg-blue-500/20 p-2 text-blue-500 hover:bg-blue-500/30 transition-colors"
                             title="Ver detalles"
                           >
                             <MdInfo className="h-5 w-5" />
                           </button>
                           <button
                             onClick={() => handleDelete(cotizacion)}
-                            className={`rounded-lg bg-red-100 p-2 text-red-600 hover:bg-red-200 ${((cotizacion.status?.id || cotizacion.status_id) === 3) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`rounded-lg bg-red-500/20 p-2 text-red-500 hover:bg-red-500/30 transition-colors ${((cotizacion.status?.id || cotizacion.status_id) === 3) ? 'opacity-50 cursor-not-allowed' : ''}`}
                             title="Eliminar"
                             disabled={(cotizacion.status?.id || cotizacion.status_id) === 3}
                           >
@@ -1619,7 +1557,7 @@ const Cotizaciones = () => {
                           </button>
                           <button
                             onClick={() => handleDownload(cotizacion)}
-                            className="rounded-lg bg-green-100 p-2 text-green-600 hover:bg-green-200"
+                            className="rounded-lg bg-accent-primary/20 p-2 text-accent-primary hover:bg-accent-primary/30 transition-colors"
                             title="Descargar PDF"
                           >
                             <MdDownload className="h-5 w-5" />
@@ -1632,500 +1570,47 @@ const Cotizaciones = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Paginación */}
+          {pagination.total > 0 && (
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-sm text-text-secondary">
+                Mostrando {((pagination.current_page - 1) * pagination.per_page) + 1} a {Math.min(pagination.current_page * pagination.per_page, pagination.total)} de {pagination.total} cotizaciones
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePageChange(pagination.current_page - 1)}
+                  disabled={pagination.current_page <= 1}
+                  className="rounded-lg border border-text-disabled/30 px-3 py-2 text-text-secondary hover:bg-text-disabled/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Anterior
+                </button>
+                <span className="text-sm text-text-secondary">
+                  Página {pagination.current_page} de {pagination.last_page}
+                </span>
+                <button
+                  onClick={() => handlePageChange(pagination.current_page + 1)}
+                  disabled={pagination.current_page >= pagination.last_page}
+                  className="rounded-lg border border-text-disabled/30 px-3 py-2 text-text-secondary hover:bg-text-disabled/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
 
       {/* Modal de Creación */}
-      <Modal
+      <CreateCotizacionModal
         isOpen={isCreateModalOpen}
         onClose={() => {
           setIsCreateModalOpen(false);
-          setSeccionActual(1); // Resetear a la primera sección al cerrar
         }}
-        title="Nueva Cotización"
-      >
-        <div className="p-4">
-          <form className="space-y-4" onSubmit={handleCreateSubmit}>
-            {seccionActual === 1 ? (
-              <>
-                {/* Información del Cliente y Proyecto (solo lectura, solo en edición) */}
-                {isEditModalOpen && (
-                  <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                    <h3 className="mb-2 text-md font-semibold text-gray-800">Información del Cliente</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-xs text-gray-500">Nombre:</span>
-                        <div className="font-medium text-gray-700">{clienteSeleccionado?.nombre || ""}</div>
-                      </div>
-                      <div>
-                        <span className="text-xs text-gray-500">Ciudad:</span>
-                        <div className="font-medium text-gray-700">{clienteSeleccionado?.ciudad || ""}</div>
-                      </div>
-                      {clienteSeleccionado?.direccion && (
-                        <div>
-                          <span className="text-xs text-gray-500">Dirección:</span>
-                          <div className="font-medium text-gray-700">{clienteSeleccionado.direccion}</div>
-                        </div>
-                      )}
-                      {clienteSeleccionado?.tipo_cliente && (
-                        <div>
-                          <span className="text-xs text-gray-500">Tipo de Cliente:</span>
-                          <div className="font-medium text-gray-700">{clienteSeleccionado.tipo_cliente}</div>
-                        </div>
-                      )}
-                    </div>
-                    <h3 className="mb-2 mt-4 text-md font-semibold text-gray-800">Información del Proyecto</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <div>
-                        <span className="text-xs text-gray-500">Nombre del Proyecto:</span>
-                        <div className="font-medium text-gray-700">{nombreProyecto}</div>
-                      </div>
-                      <div>
-                        <span className="text-xs text-gray-500">Potencia (kW):</span>
-                        <div className="font-medium text-gray-700">{potenciaKW}</div>
-                      </div>
-                      <div>
-                        <span className="text-xs text-gray-500">Tipo de Sistema:</span>
-                        <div className="font-medium text-gray-700">{tipoSistema}</div>
-                      </div>
-                      <div>
-                        <span className="text-xs text-gray-500">Tipo de Red:</span>
-                        <div className="font-medium text-gray-700">{tipoRed}</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {/* Sección 1: Información Básica */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800">Información Básica</h3>
-                  
-                  {/* Selección de Cliente */}
-                  {renderSeleccionCliente()}
-
-                  {/* Cliente Seleccionado */}
-                  {renderClienteSeleccionado()}
-
-                  {/* Nombre del Proyecto */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Nombre del Proyecto
-                    </label>
-                    <input
-                      type="text"
-                      name="nombre_proyecto"
-                      value={nombreProyecto}
-                      onChange={(e) => setNombreProyecto(e.target.value)}
-                      required
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                    />
-                  </div>
-
-                  {/* Potencia */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Potencia (kW)
-                    </label>
-                    <input
-                      type="number"
-                      name="potencia_kwp"
-                      value={potenciaKW}
-                      onChange={(e) => {
-                        console.log("Valor de potencia ingresado:", e.target.value);
-                        setPotenciaKW(e.target.value);
-                      }}
-                      step="0.1"
-                      min="0"
-                      required
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                    />
-                  </div>
-
-                  {/* Tipo de Sistema */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Tipo de Sistema
-                    </label>
-                    <select
-                      name="tipo_sistema"
-                      value={tipoSistema}
-                      onChange={(e) => {
-                        console.log("Valor de tipo de sistema seleccionado:", e.target.value);
-                        setTipoSistema(e.target.value);
-                        setInversorSeleccionado(null);
-                      }}
-                      required
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                    >
-                      <option value="">Seleccione el tipo de sistema</option>
-                      <option value="Interconectado">Interconectado - Sistema conectado a la red eléctrica</option>
-                      <option value="Aislado">Aislado - Sistema independiente de la red eléctrica</option>
-                      <option value="Híbrido">Híbrido - Sistema que combina características de interconectado y aislado</option>
-                    </select>
-                  </div>
-
-                  {/* Tipo de Red */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Tipo de Red
-                    </label>
-                    <select
-                      name="tipo_red"
-                      value={tipoRed}
-                      onChange={(e) => {
-                        console.log("Valor de tipo de red seleccionado:", e.target.value);
-                        setTipoRed(e.target.value);
-                        setInversorSeleccionado(null);
-                      }}
-                      required
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                    >
-                      <option value="">Seleccione el tipo de red</option>
-                      <option value="Monofásica 110V">Monofásica 110V</option>
-                      <option value="Bifásica 220V">Bifásica 220V</option>
-                      <option value="Trifásica 220V">Trifásica 220V</option>
-                      <option value="Trifásica 440V">Trifásica 440V</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Sección de Equipos */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800">Equipos</h3>
-                  
-                  {/* Selección de Inversor */}
-                  {renderSeleccionInversor()}
-
-                  {/* Inversor Seleccionado */}
-                  {inversorSeleccionado && (
-                    <div className="rounded-md bg-blue-50 p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium text-blue-800">{inversorSeleccionado.brand} - {inversorSeleccionado.model} - {inversorSeleccionado.power}kW</h4>
-                          <div className="mt-1 text-sm text-blue-600">
-                            <div>Modelo: {inversorSeleccionado.model}</div>
-                            <div>Tipo de Red: {inversorSeleccionado.grid_type}</div>
-                            <div>Precio: ${formatearNumero(inversorSeleccionado.price)}</div>
-                            {inversorSeleccionado.technical_sheet_url && (
-                              <a 
-                                href={`http://localhost:3000${inversorSeleccionado.technical_sheet_url}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800"
-                              >
-                                Ver ficha técnica
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setInversorSeleccionado(null);
-                            setCantidadInversores("");
-                          }}
-                          className="text-sm text-blue-600 hover:text-blue-800"
-                        >
-                          Cambiar
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Selección de Panel */}
-                  {renderSeleccionPanel()}
-
-                  {/* Panel Seleccionado */}
-                  {panelSeleccionado && (
-                    <div className="rounded-md bg-blue-50 p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium text-blue-800">{panelSeleccionado.brand} - {panelSeleccionado.model} - {panelSeleccionado.power}W</h4>
-                          <div className="mt-1 text-sm text-blue-600">
-                            <div>Tipo: {panelSeleccionado.type}</div>
-                            <div>Precio: ${formatearNumero(panelSeleccionado.price)}</div>
-                            {panelSeleccionado.technical_sheet_url && (
-                              <a
-                                href={`http://localhost:3000${panelSeleccionado.technical_sheet_url}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800"
-                              >
-                                Ver ficha técnica
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPanelSeleccionado(null);
-                            setCantidadPaneles(0);
-                          }}
-                          className="text-sm text-blue-600 hover:text-blue-800"
-                        >
-                          Cambiar
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Cálculo de Paneles */}
-                  {numeroPanelesCalculado && panelSeleccionado && (
-                    <div className="rounded-md bg-blue-50 p-4">
-                      <p className="text-sm text-blue-800">
-                        Para una potencia de {potenciaKW} kW, se necesitan aproximadamente {numeroPanelesCalculado} paneles de {panelSeleccionado.power}W.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Selección de Batería */}
-                  {renderSeleccionBateria()}
-                </div>
-
-                {/* Botón Continuar */}
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      console.log("Estado actual antes de continuar:", {
-                        inversorSeleccionado,
-                        panelSeleccionado,
-                        cantidadInversores,
-                        cantidadPaneles,
-                        tipoSistema,
-                        potenciaKW
-                      });
-                      setSeccionActual(2);
-                    }}
-                    disabled={!inversorSeleccionado || !panelSeleccionado || !cantidadInversores || !cantidadPaneles || !tipoSistema || !potenciaKW}
-                    className="rounded-lg bg-green-600 px-6 py-2.5 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Continuar con la Cotización
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Sección 2: Valores y Porcentajes */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-800">Valores y Porcentajes</h3>
-                  
-                  {/* Valores */}
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Valor Trámites
-                      </label>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Valor para tramitar los procesos ante el operador de red
-                      </p>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                        <input
-                          type="text"
-                          value={parseInt(valorTramites || 0).toLocaleString('es-ES')}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^\d]/g, '');
-                            setValorTramites(value);
-                          }}
-                          className="mt-1 block w-full rounded-md border border-gray-300 pl-8 pr-3 py-2"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Valor Mano de Obra
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                        <input
-                          type="text"
-                          value={parseInt(valorManoObra || 0).toLocaleString('es-ES')}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^\d]/g, '');
-                            setValorManoObra(value);
-                          }}
-                          className="mt-1 block w-full rounded-md border border-gray-300 pl-8 pr-3 py-2"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Valor Estructura
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                        <input
-                          type="text"
-                          value={parseInt(valorEstructura || 0).toLocaleString('es-ES')}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^\d]/g, '');
-                            setValorEstructura(value);
-                          }}
-                          className="mt-1 block w-full rounded-md border border-gray-300 pl-8 pr-3 py-2"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Valor Material Eléctrico
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                        <input
-                          type="text"
-                          value={parseInt(valorMaterialElectrico || 0).toLocaleString('es-ES')}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^\d]/g, '');
-                            setValorMaterialElectrico(value);
-                          }}
-                          className="mt-1 block w-full rounded-md border border-gray-300 pl-8 pr-3 py-2"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Valor Sobreestructura
-                      </label>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Solo ingrese un valor si se requiere realizar trabajos de adaptación o instalación de estructuras adicionales
-                      </p>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                        <input
-                          type="text"
-                          value={parseInt(valorSobreestructura || 0).toLocaleString('es-ES')}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^\d]/g, '');
-                            setValorSobreestructura(value);
-                          }}
-                          className="mt-1 block w-full rounded-md border border-gray-300 pl-8 pr-3 py-2"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Porcentajes */}
-                  <div className="mt-6">
-                    <h4 className="mb-4 text-md font-semibold text-gray-800">Porcentajes</h4>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Gestión Comercial (%)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={porcentajeGestionComercial}
-                          onChange={(e) => setPorcentajeGestionComercial(e.target.value)}
-                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Imprevistos (%)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={porcentajeImprevistos}
-                          onChange={(e) => setPorcentajeImprevistos(e.target.value)}
-                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Retención (%)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={porcentajeRetencion}
-                          onChange={(e) => setPorcentajeRetencion(e.target.value)}
-                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Administración (%)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={porcentajeAdministracion}
-                          onChange={(e) => setPorcentajeAdministracion(e.target.value)}
-                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Utilidad (%)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={porcentajeUtilidad}
-                          onChange={(e) => setPorcentajeUtilidad(e.target.value)}
-                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          IVA sobre Utilidad (%)
-                        </label>
-                        <input
-                          type="number"
-                          value="19"
-                          disabled
-                          className="mt-1 block w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Financiamiento */}
-                  <div className="mt-6">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="requiereFinanciamiento"
-                        checked={requiereFinanciamiento}
-                        onChange={(e) => setRequiereFinanciamiento(e.target.checked)}
-                        disabled={!potenciaKW || parseFloat(potenciaKW) <= 47}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 disabled:opacity-50"
-                      />
-                      <label htmlFor="requiereFinanciamiento" className="ml-2 block text-sm text-gray-700">
-                        Requiere Financiamiento
-                      </label>
-                    </div>
-                    {potenciaKW && parseFloat(potenciaKW) <= 47 && (
-                      <p className="mt-1 text-sm text-gray-500">
-                        El financiamiento solo está disponible para proyectos con potencia mayor a 47 kW
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-6 flex justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setSeccionActual(1)}
-                    className="rounded-lg border border-gray-300 px-6 py-2.5 text-gray-800 hover:bg-gray-50"
-                  >
-                    Volver
-                  </button>
-                  <button
-                    type="submit"
-                    className="rounded-lg bg-green-600 px-6 py-2.5 text-white hover:bg-green-700"
-                  >
-                    Guardar Cotización
-                  </button>
-                </div>
-              </>
-            )}
-          </form>
-        </div>
-      </Modal>
+        user={user}
+        setMensajes={setMensajes}
+        fetchCotizaciones={fetchCotizaciones}
+      />
 
       {/* Modal de Edición */}
       <EditCotizacionModal
@@ -2139,249 +1624,18 @@ const Cotizaciones = () => {
         inversores={inversores}
         fetchCotizaciones={fetchCotizaciones}
         setMensajes={setMensajes}
+        user={user}
       />
 
       {/* Modal de Eliminación */}
-      <Modal
+      <DeleteCotizacionModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        title="Eliminar Cotización"
-      >
-        <div className="p-4">
-          <p className="text-gray-600">
-            ¿Está seguro que desea eliminar la cotización {selectedCotizacion?.nombre_proyecto}?
-          </p>
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              onClick={() => setIsDeleteModalOpen(false)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleDeleteConfirm}
-              className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
-            >
-              Eliminar
-            </button>
-          </div>
-        </div>
-      </Modal>
+        selectedCotizacion={selectedCotizacion}
+        onConfirm={handleDeleteConfirm}
+      />
 
-      {/* Modal de Detalles */}
-      {isDetailsModalOpen && cotizacionDetalles && (
-        <Modal isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)}>
-          <div className="p-6">
-            <h2 className="text-xl font-bold mb-4">Detalles de la Cotización</h2>
-            
-            {/* Información básica */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2">Información General</h3>
-              <p><strong>Proyecto:</strong> {cotizacionDetalles.project_name}</p>
-              <p><strong>Cliente:</strong> {cotizacionDetalles.client?.name}</p>
-              <p><strong>Tipo de Sistema:</strong> {cotizacionDetalles.system_type}</p>
-              <p><strong>Potencia:</strong> {cotizacionDetalles.power_kwp} kWp</p>
-              <p><strong>Valor Total:</strong> {formatNumber(cotizacionDetalles.total_value)}</p>
             </div>
-
-            {/* Productos utilizados */}
-            {cotizacionDetalles.used_products && cotizacionDetalles.used_products.length > 0 && (
-              <div className="mb-8">
-                <div className="flex items-center mb-4">
-                  <div className="w-1 h-6 bg-blue-500 mr-3"></div>
-                  <h3 className="text-xl font-bold text-gray-800">Productos Utilizados</h3>
-                </div>
-                <div className="overflow-x-auto shadow-lg rounded-lg border border-gray-200">
-                  <table className="w-full bg-white">
-                    <thead>
-                      <tr className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                        <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">Producto</th>
-                        <th className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider">Cantidad</th>
-                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Precio Unit.</th>
-                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Subtotal</th>
-                        <th className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider">Utilidad %</th>
-                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Utilidad</th>
-                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {cotizacionDetalles.used_products.map((product, index) => {
-                        const productTypeInfo = {
-                          'panel': { name: 'Panel Solar', icon: '☀️', color: 'text-yellow-600 bg-yellow-50' },
-                          'inverter': { name: 'Inversor', icon: '⚡', color: 'text-blue-600 bg-blue-50' },
-                          'battery': { name: 'Batería', icon: '🔋', color: 'text-green-600 bg-green-50' }
-                        };
-                        const typeInfo = productTypeInfo[product.product_type] || { name: product.product_type, icon: '📦', color: 'text-gray-600 bg-gray-50' };
-                        
-                        return (
-                          <tr key={product.used_product_id || index} className="hover:bg-gray-50 transition-colors duration-200">
-                            <td className="px-6 py-4">
-                              <div className="flex items-center">
-                                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm mr-3 ${typeInfo.color}`}>
-                                  {typeInfo.icon}
-                                </span>
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">{typeInfo.name}</div>
-                                  <div className="text-xs text-gray-500">ID: {product.product_id}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                                {product.quantity}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right font-mono text-sm">
-                              <span className="text-gray-900">{formatNumber(product.unit_price)}</span>
-                            </td>
-                            <td className="px-6 py-4 text-right font-mono text-sm">
-                              <span className="text-gray-900">{formatNumber(product.partial_value)}</span>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                {(parseFloat(product.profit_percentage) * 100).toFixed(1)}%
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right font-mono text-sm">
-                              <span className="text-green-600 font-medium">{formatNumber(product.profit)}</span>
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <span className="text-lg font-bold text-gray-900">{formatNumber(product.total_value)}</span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-gray-50">
-                        <td colSpan="6" className="px-6 py-4 text-right font-semibold text-gray-700">Total Productos:</td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="text-xl font-bold text-blue-600">
-                            ${formatNumber(cotizacionDetalles.used_products.reduce((sum, p) => sum + parseFloat(p.total_value), 0))}
-                          </span>
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Items adicionales */}
-            {cotizacionDetalles.items && cotizacionDetalles.items.length > 0 && (
-              <div className="mb-8">
-                <div className="flex items-center mb-4">
-                  <div className="w-1 h-6 bg-green-500 mr-3"></div>
-                  <h3 className="text-xl font-bold text-gray-800">Items Adicionales</h3>
-                </div>
-                <div className="overflow-x-auto shadow-lg rounded-lg border border-gray-200">
-                  <table className="w-full bg-white">
-                    <thead>
-                      <tr className="bg-gradient-to-r from-green-600 to-green-700 text-white">
-                        <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">Descripción</th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold uppercase tracking-wider">Tipo</th>
-                        <th className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider">Cantidad</th>
-                        <th className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider">Unidad</th>
-                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Precio Unit.</th>
-                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Subtotal</th>
-                        <th className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider">Utilidad %</th>
-                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Utilidad</th>
-                        <th className="px-6 py-4 text-right text-sm font-semibold uppercase tracking-wider">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {cotizacionDetalles.items.map((item, index) => {
-                        const itemTypeInfo = {
-                          'conductor_fotovoltaico': { name: 'Conductor Fotovoltaico', icon: '🔌', color: 'text-orange-600 bg-orange-50' },
-                          'material_electrico': { name: 'Material Eléctrico', icon: '⚡', color: 'text-yellow-600 bg-yellow-50' },
-                          'estructura': { name: 'Estructura de Soporte', icon: '🏗️', color: 'text-gray-600 bg-gray-50' },
-                          'mano_obra': { name: 'Mano de Obra', icon: '👷', color: 'text-blue-600 bg-blue-50' },
-                          'tramites': { name: 'Trámites', icon: '📋', color: 'text-purple-600 bg-purple-50' },
-                          'sobreestructura': { name: 'Sobreestructura', icon: '🏢', color: 'text-indigo-600 bg-indigo-50' }
-                        };
-                        const typeInfo = itemTypeInfo[item.tipo_item] || { name: item.tipo_item, icon: '📦', color: 'text-gray-600 bg-gray-50' };
-                        
-                        return (
-                          <tr key={item.id_item || index} className="hover:bg-gray-50 transition-colors duration-200">
-                            <td className="px-6 py-4">
-                              <div className="text-sm font-medium text-gray-900">{item.descripcion}</div>
-                              <div className="text-xs text-gray-500">ID: {item.id_item}</div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center">
-                                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm mr-2 ${typeInfo.color}`}>
-                                  {typeInfo.icon}
-                                </span>
-                                <span className="text-sm font-medium text-gray-700">{typeInfo.name}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                                {item.cantidad}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {item.unidad}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right font-mono text-sm">
-                              <span className="text-gray-900">{formatNumber(item.precio_unitario)}</span>
-                            </td>
-                            <td className="px-6 py-4 text-right font-mono text-sm">
-                              <span className="text-gray-900">{formatNumber(item.valor_parcial)}</span>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                {(parseFloat(item.porcentaje_ganancia) * 100).toFixed(1)}%
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-right font-mono text-sm">
-                              <span className="text-green-600 font-medium">{formatNumber(item.ganancia)}</span>
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                              <span className="text-lg font-bold text-gray-900">{formatNumber(item.valor_total_item)}</span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-gray-50">
-                        <td colSpan="8" className="px-6 py-4 text-right font-semibold text-gray-700">Total Items:</td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="text-xl font-bold text-green-600">
-                            ${formatNumber(cotizacionDetalles.items.reduce((sum, i) => sum + parseFloat(i.valor_total_item), 0))}
-                          </span>
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Resumen total */}
-            <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-gray-200">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-800">Valor Total de la Cotización</h4>
-                  <p className="text-sm text-gray-600">Incluye productos e items adicionales</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-3xl font-bold text-blue-600">
-                    ${formatNumber(cotizacionDetalles.total_value || 0)}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Potencia: {cotizacionDetalles.power_kwp || 0} kWp
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Modal>
-      )}
-    </div>
   );
 };
 

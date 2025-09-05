@@ -82,7 +82,7 @@ function CheckTable(props) {
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    debugTable: true,
+    
   });
   return (
     <Card extra={"w-full h-full sm:overflow-auto px-6"}>

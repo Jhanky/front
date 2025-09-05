@@ -6,6 +6,7 @@ import Loading from "components/loading";
 import Mensaje from "components/mensaje";
 import { MdArrowBack } from "react-icons/md";
 import Modal from "components/modal";
+import { getApiUrl } from '../../../config/api';
 
 const DetalleCotizacion = () => {
   const { id } = useParams();
@@ -29,7 +30,7 @@ const DetalleCotizacion = () => {
           throw new Error("No hay token de autenticación");
         }
 
-        const response = await fetch(`http://localhost:3000/api/cotizaciones/${id}`, {
+        const response = await fetch(getApiUrl(`/api/quotations/${id}`), {
           headers: {
             "Authorization": `Bearer ${token}`,
             "Content-Type": "application/json"
@@ -61,7 +62,7 @@ const DetalleCotizacion = () => {
   // Cargar estados posibles al abrir modal
   useEffect(() => {
     if (isEditModalOpen) {
-      fetch("http://localhost:3000/api/quotation-statuses")
+      fetch(getApiUrl("/api/quotation-statuses"))
         .then(res => res.json())
         .then(setStatuses)
         .catch(() => setStatuses([]));
@@ -120,7 +121,7 @@ const DetalleCotizacion = () => {
           porcentaje_ganancia: parseFloat(i.porcentaje_ganancia || i.profit_percentage || 0.2)
         }))
       };
-      const res = await fetch(`http://localhost:3000/api/cotizaciones/${id}`, {
+      const res = await fetch(getApiUrl(`/api/quotations/${id}`), {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,

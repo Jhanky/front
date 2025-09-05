@@ -10,12 +10,12 @@ const Modal = ({ isOpen, onClose, title, children }) => {
         onClick={onClose}
       />
       
-      <div className="relative w-full max-w-4xl rounded-lg bg-white p-6 shadow-xl">
+              <div className="relative w-full max-w-4xl rounded-lg bg-primary-card p-6 shadow-xl text-text-primary">
         <div className="mb-4 flex items-center justify-between border-b pb-4">
-          <h2 className="text-xl font-semibold text-gray-800">{title}</h2>
+                      <h2 className="text-xl font-semibold text-text-primary">{title}</h2>
           <button
             onClick={onClose}
-            className="rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="rounded-full p-1 text-text-secondary hover:bg-accent-primary/20 hover:text-text-primary transition-colors"
           >
             <svg
               className="h-6 w-6"

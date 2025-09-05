@@ -5,7 +5,19 @@ import Modal from "components/modal";
 import { useAuth } from "context/AuthContext";
 import Mensaje from "components/mensaje";
 import Loading from "components/loading";
-import { getApiUrl } from '../../../config/api';
+import { 
+  getClientes, 
+  createCliente, 
+  updateCliente, 
+  deleteCliente,
+  getDepartamentos,
+  getCiudades,
+  formatNumber,
+  validateNetworkType,
+  validateClientType,
+  prepareClientData
+} from "services/clientesService";
+import { testDepartamentoDirecto, getDepartamentosAlternativo } from "services/localizacionesService";
 
 const Clientes = () => {
   const { user } = useAuth();
@@ -18,6 +30,8 @@ const Clientes = () => {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [search, setSearch] = useState("");
+  const [filterTipoCliente, setFilterTipoCliente] = useState("");
+  const [filterCiudad, setFilterCiudad] = useState("");
   const [formData, setFormData] = useState({
     nic: "",
     tipo_cliente: "Residencial",
@@ -36,7 +50,6 @@ const Clientes = () => {
 
   const [mensajes, setMensajes] = useState([]);
   const [esperandoRespuesta, setEsperandoRespuesta] = useState(false);
-  const [intentosRestantes, setIntentosRestantes] = useState(5);
 
   const [editFormData, setEditFormData] = useState({
     nic: "",
@@ -50,39 +63,24 @@ const Clientes = () => {
     tipo_red: ""
   });
 
-  // Función para cargar clientes
+  // Función para cargar clientes usando el servicio
   const fetchClientes = async () => {
     try {
       setLoading(true);
-      const token = user?.token;
       
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
+      // Preparar filtros para la API
+      const filters = {};
+      if (search) filters.search = search;
+      if (filterTipoCliente) filters.client_type = filterTipoCliente;
+      if (filterCiudad) filters.city = filterCiudad;
+      
+      const response = await getClientes(filters);
+      
+      if (response.success) {
+        setClientes(response.data);
 
-      const response = await fetch(getApiUrl('/api/clients'), {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-
-      const responseData = await response.json();
-    
-      // Verificar la estructura de respuesta de Laravel
-      if (responseData.success && responseData.data) {
-        // La respuesta viene con paginación, extraer solo los datos
-        const clientesData = responseData.data.data || [];
-        setClientes(clientesData);
-        console.log('Clientes cargados:', clientesData);
       } else {
-        // Fallback para estructura anterior
-        setClientes(responseData.data || responseData || []);
+        setClientes(response.data || []);
       }
       
       setError(null);
@@ -95,69 +93,34 @@ const Clientes = () => {
     }
   };
 
-  // Función para cargar departamentos
+
+
+  // Función para cargar departamentos usando el servicio
   const fetchDepartamentos = async () => {
     try {
-      const token = user?.token;
-      if (!token) {
-        throw new Error("No hay token de autenticación");
+      // Intentar primero con la función alternativa
+      let response;
+      try {
+        response = await getDepartamentosAlternativo();
+      } catch (error) {
+        response = await getDepartamentos();
       }
-
-      const response = await fetch(getApiUrl('/api/locations/departments'), {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Accept": "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error("Error al cargar los departamentos");
-      }
-
-      const responseData = await response.json();
       
-      // Manejar la nueva estructura de respuesta de Laravel
-      if (responseData.success && responseData.data) {
-        setDepartamentos(responseData.data);
-      } else {
-        throw new Error("Formato de respuesta inválido");
-      }
+      setDepartamentos(response);
     } catch (error) {
-      console.error("Error al cargar departamentos:", error);
+      console.error("❌ Error al cargar departamentos:", error);
       setError(error.message);
     }
   };
 
-  // Función para cargar ciudades por departamento
+  // Función para cargar ciudades usando el servicio
   const fetchCiudades = async (departamento) => {
     try {
       setLoadingLocalidades(true);
-      const token = user?.token;
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
-
-      const response = await fetch(getApiUrl(`/api/locations/cities?department=${encodeURIComponent(departamento)}`), {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Accept": "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error("Error al cargar las ciudades");
-      }
-
-      const responseData = await response.json();
-      
-      // Manejar la nueva estructura de respuesta de Laravel
-      if (responseData.success && responseData.data) {
-        setCiudades(responseData.data);
-      } else {
-        throw new Error("Formato de respuesta inválido");
-      }
+      const response = await getCiudades(departamento);
+      setCiudades(response);
     } catch (error) {
-      console.error("Error al cargar ciudades:", error);
+      console.error("❌ Error al cargar ciudades:", error);
       setError(error.message);
       setCiudades([]);
     } finally {
@@ -228,25 +191,7 @@ const Clientes = () => {
     setEsperandoRespuesta(true);
 
     try {
-      const token = user?.token;
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
-
-      const response = await fetch(getApiUrl(`/api/clients/${selectedCliente.client_id}`), {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        }
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.mensaje || "Error al eliminar el cliente");
-      }
+      await deleteCliente(selectedCliente.client_id);
 
       // Eliminar el cliente del estado local dinámicamente
       setClientes(prevClientes => 
@@ -286,17 +231,30 @@ const Clientes = () => {
 
   const handleSearch = (e) => {
     e.preventDefault();
+    fetchClientes(); // Recargar con los filtros actuales
   };
 
-  const formatNumber = (number) => {
-    return new Intl.NumberFormat('es-CO').format(number);
-  };
+  // Obtener tipos de cliente únicos
+  const tiposClienteUnicos = [...new Set(clientes.map(cliente => cliente.client_type))].filter(Boolean).sort();
+  
+  // Obtener ciudades únicas
+  const ciudadesUnicas = [...new Set(clientes.map(cliente => cliente.city))].filter(Boolean).sort();
 
-  const filteredClientes = clientes.filter(cliente => 
-    cliente.name?.toLowerCase().includes(search.toLowerCase()) ||
-    cliente.nic?.toString().includes(search) ||
-    cliente.client_type?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredClientes = clientes.filter(cliente => {
+    // Filtro por búsqueda general
+    const matchesSearch = 
+      cliente.name?.toLowerCase().includes(search.toLowerCase()) ||
+      cliente.nic?.toString().includes(search) ||
+      cliente.client_type?.toLowerCase().includes(search.toLowerCase());
+    
+    // Filtro por tipo de cliente
+    const matchesTipoCliente = !filterTipoCliente || cliente.client_type === filterTipoCliente;
+    
+    // Filtro por ciudad
+    const matchesCiudad = !filterCiudad || cliente.city === filterCiudad;
+    
+    return matchesSearch && matchesTipoCliente && matchesCiudad;
+  });
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
@@ -305,54 +263,22 @@ const Clientes = () => {
     setEsperandoRespuesta(true);
 
     try {
-      const token = user?.token;
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
-
-      // Validar tipo de red
-      const tiposRedValidos = [
-        "Monofásica 110V",
-        "Bifásica 220V",
-        "Trifásica 220V",
-        "Trifásica 440V"
-      ];
-
-      if (!tiposRedValidos.includes(formData.tipo_red)) {
+      // Validar tipo de red usando el servicio
+      if (!validateNetworkType(formData.tipo_red)) {
         throw new Error("Tipo de red no válido");
       }
 
-      const clientData = {
-        nic: formData.nic,
-        client_type: formData.tipo_cliente,
-        name: formData.nombre,
-        department: formData.departamento,
-        city: formData.ciudad,
-        address: formData.direccion,
-        monthly_consumption_kwh: Number(formData.consumo_mensual_kwh),
-        energy_rate: Number(formData.tarifa_energia),
-        network_type: formData.tipo_red,
-        is_active: true
-      };
-
-      const response = await fetch(getApiUrl('/api/clients'), {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(clientData)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.mensaje || "Error al crear el cliente");
+      // Validar tipo de cliente usando el servicio
+      if (!validateClientType(formData.tipo_cliente)) {
+        throw new Error("Tipo de cliente no válido");
       }
 
+      // Preparar datos usando el servicio
+      const clientData = prepareClientData(formData);
+
+      const nuevoCliente = await createCliente(clientData);
+
       // Agregar el nuevo cliente al estado local dinámicamente
-      const nuevoCliente = data.data || data; // Adaptarse a la respuesta de Laravel
       setClientes(prevClientes => [nuevoCliente, ...prevClientes]);
 
       // Mostrar mensaje de éxito
@@ -425,24 +351,17 @@ const Clientes = () => {
     setEsperandoRespuesta(true);
 
     try {
-      const token = user?.token;
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
-
-      // Validar tipo de red
-      const tiposRedValidos = [
-        "Monofásica 110V",
-        "Bifásica 220V",
-        "Trifásica 220V",
-        "Trifásica 440V"
-      ];
-
-      if (!tiposRedValidos.includes(editFormData.tipo_red)) {
+      // Validar tipo de red usando el servicio
+      if (!validateNetworkType(editFormData.tipo_red)) {
         throw new Error("Tipo de red no válido");
       }
 
-      // Preparar los datos para enviar con la nueva estructura
+      // Validar tipo de cliente usando el servicio
+      if (!validateClientType(editFormData.tipo_cliente)) {
+        throw new Error("Tipo de cliente no válido");
+      }
+
+      // Preparar los datos para enviar
       const updateData = {
         nic: editFormData.nic,
         client_type: editFormData.tipo_cliente,
@@ -455,24 +374,9 @@ const Clientes = () => {
         network_type: editFormData.tipo_red
       };
 
-      const response = await fetch(getApiUrl(`/api/clients/${selectedCliente.client_id}`), {
-        method: "PUT",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(updateData)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.mensaje || "Error al actualizar el cliente");
-      }
+      const clienteActualizado = await updateCliente(selectedCliente.client_id, updateData);
 
       // Actualizar el cliente en el estado local dinámicamente
-      const clienteActualizado = data.data || { ...selectedCliente, ...updateData };
       setClientes(prevClientes => 
         prevClientes.map(cliente => 
           cliente.client_id === selectedCliente.client_id 
@@ -532,7 +436,7 @@ const Clientes = () => {
             setError(null);
             fetchClientes();
           }}
-          className="rounded-lg bg-blue-600 px-6 py-2.5 text-white transition-colors hover:bg-blue-700"
+          className="rounded-lg bg-accent-primary px-6 py-2.5 text-white transition-colors hover:bg-accent-hover"
         >
           Reintentar
         </button>
@@ -545,16 +449,18 @@ const Clientes = () => {
       <div className="col-span-1 h-fit w-full xl:col-span-2 2xl:col-span-3">
         <Card extra={"w-full h-full px-8 pb-8 sm:overflow-x-auto"}>
           <div className="flex items-center justify-between py-4">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+            <h1 className="text-2xl font-bold text-text-primary">
               Clientes
             </h1>
-            <button
-              onClick={handleCreate}
-              className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-white hover:bg-green-700"
-            >
-              <MdAdd className="h-5 w-5" />
-              Nuevo Cliente
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreate}
+                className="flex items-center gap-2 rounded-lg bg-accent-primary px-6 py-2.5 text-white hover:bg-accent-hover transition-colors"
+              >
+                <MdAdd className="h-5 w-5" />
+                Nuevo Cliente
+              </button>
+            </div>
           </div>
 
           {/* Barra de búsqueda */}
@@ -566,88 +472,165 @@ const Clientes = () => {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar por nombre, NIC o tipo de cliente..."
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 pl-10 focus:border-green-500 focus:outline-none"
+                  className="w-full rounded-lg border border-text-disabled/30 px-4 py-2 pl-10 focus:border-accent-primary focus:outline-none bg-primary-card text-text-primary"
                 />
-                <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-disabled" />
               </div>
               <button
                 type="submit"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                className="rounded-lg bg-accent-primary px-4 py-2 text-white hover:bg-accent-hover transition-colors"
               >
                 Buscar
               </button>
             </form>
           </div>
 
+          {/* Filtros */}
+          <div className="mb-4 flex flex-wrap gap-4">
+            {/* Filtro por tipo de cliente */}
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Tipo de Cliente
+              </label>
+              <select
+                value={filterTipoCliente}
+                onChange={(e) => setFilterTipoCliente(e.target.value)}
+                className="w-full rounded-lg border border-text-disabled/30 px-3 py-2 focus:border-accent-primary focus:outline-none bg-primary-card text-text-primary"
+              >
+                <option value="">Todos los tipos</option>
+                {tiposClienteUnicos.map((tipo) => (
+                  <option key={tipo} value={tipo}>
+                    {tipo}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro por ciudad */}
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Ciudad
+              </label>
+              <select
+                value={filterCiudad}
+                onChange={(e) => setFilterCiudad(e.target.value)}
+                className="w-full rounded-lg border border-text-disabled/30 px-3 py-2 focus:border-accent-primary focus:outline-none bg-primary-card text-text-primary"
+              >
+                <option value="">Todas las ciudades</option>
+                {ciudadesUnicas.map((ciudad) => (
+                  <option key={ciudad} value={ciudad}>
+                    {ciudad}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Botón para limpiar filtros */}
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterTipoCliente("");
+                  setFilterCiudad("");
+                  setSearch("");
+                }}
+                className="rounded-lg bg-text-disabled px-4 py-2 text-white hover:bg-text-secondary transition-colors"
+              >
+                Limpiar Filtros
+              </button>
+            </div>
+          </div>
+
+          {/* Contador de resultados */}
+          <div className="mb-4 flex justify-between items-center">
+            <div className="text-sm text-text-secondary">
+              Mostrando {filteredClientes.length} de {clientes.length} clientes
+            </div>
+            {(filterTipoCliente || filterCiudad || search) && (
+              <div className="text-sm text-text-secondary">
+                Filtros activos: 
+                {filterTipoCliente && <span className="ml-1 px-2 py-1 bg-blue-100 text-blue-800 rounded">Tipo: {filterTipoCliente}</span>}
+                {filterCiudad && <span className="ml-1 px-2 py-1 bg-green-100 text-green-800 rounded">Ciudad: {filterCiudad}</span>}
+                {search && <span className="ml-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded">Búsqueda: "{search}"</span>}
+              </div>
+            )}
+          </div>
+
           {/* Tabla de clientes */}
           <div className="mt-4 overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">NIC</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Tipo Cliente</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Nombre</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Ciudad</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Departamento</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Dirección</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Consumo</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Tarifa</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Tipo Red</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Estado</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Usuario</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">Acciones</th>
+                <tr className="border-b border-text-disabled/20 bg-primary">
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">NIC</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Tipo Cliente</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Nombre</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Ciudad</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Departamento</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Dirección</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Consumo</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Tarifa</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Responsable</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredClientes.map((cliente) => (
-                  <tr key={cliente.client_id} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.nic}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.client_type}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.city}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.department}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.address}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
+                {filteredClientes.length === 0 ? (
+                  <tr>
+                    <td colSpan="12" className="px-6 py-8 text-center text-text-secondary">
+                      <div className="flex flex-col items-center">
+                        <div className="text-lg font-medium mb-2">No se encontraron clientes</div>
+                        <div className="text-sm">
+                          {search || filterTipoCliente || filterCiudad 
+                            ? "Intenta ajustar los filtros de búsqueda"
+                            : "No hay clientes registrados"
+                          }
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredClientes.map((cliente) => (
+                  <tr key={cliente.client_id} className="border-b border-text-disabled/20 hover:bg-accent-primary/10 transition-colors">
+                    <td className="px-6 py-4 text-sm text-text-primary">{cliente.nic}</td>
+                    <td className="px-6 py-4 text-sm text-text-primary">{cliente.client_type}</td>
+                    <td className="px-6 py-4 text-sm text-text-primary">{cliente.name}</td>
+                    <td className="px-6 py-4 text-sm text-text-primary">{cliente.city}</td>
+                    <td className="px-6 py-4 text-sm text-text-primary">{cliente.department}</td>
+                    <td className="px-6 py-4 text-sm text-text-primary">{cliente.address}</td>
+                    <td className="px-6 py-4 text-sm text-text-primary">
                       {formatNumber(cliente.monthly_consumption_kwh)} kWh
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 text-sm text-text-primary">
                       ${formatNumber(cliente.energy_rate)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{cliente.network_type}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                        cliente.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {cliente.is_active ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 text-sm text-text-primary">
                       {cliente.user?.name || 'N/A'}
                     </td>
                     <td className="px-6 py-4 text-sm font-medium">
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleInfo(cliente)}
-                          className="text-blue-600 hover:text-blue-700"
+                          className="text-blue-500 hover:text-blue-400 transition-colors"
                         >
                           <MdInfo className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => handleEdit(cliente)}
-                          className="text-green-600 hover:text-green-700"
+                          className="text-accent-primary hover:text-accent-hover transition-colors"
                         >
                           <MdEdit className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => handleDelete(cliente)}
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-500 hover:text-red-400 transition-colors"
                         >
                           <MdDelete className="h-5 w-5" />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                ))
+                )}
               </tbody>
             </table>
           </div>
@@ -665,7 +648,7 @@ const Clientes = () => {
             {/* Columna Izquierda */}
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   NIC*
                 </label>
                 <input
@@ -674,12 +657,12 @@ const Clientes = () => {
                   value={formData.nic}
                   onChange={handleInputChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 shadow-sm focus:border-accent-primary focus:outline-none focus:ring-1 focus:ring-accent-primary bg-primary-card text-text-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Tipo de Cliente*
                 </label>
                 <select
@@ -687,7 +670,7 @@ const Clientes = () => {
                   value={formData.tipo_cliente}
                   onChange={handleInputChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 shadow-sm focus:border-accent-primary focus:outline-none focus:ring-1 focus:ring-accent-primary bg-primary-card text-text-primary"
                 >
                   <option value="Residencial">Residencial</option>
                   <option value="Comercial">Comercial</option>
@@ -696,7 +679,7 @@ const Clientes = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Nombre*
                 </label>
                 <input
@@ -705,12 +688,12 @@ const Clientes = () => {
                   value={formData.nombre}
                   onChange={handleInputChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 shadow-sm focus:border-accent-primary focus:outline-none focus:ring-1 focus:ring-accent-primary bg-primary-card text-text-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Departamento*
                 </label>
                 <select
@@ -718,7 +701,7 @@ const Clientes = () => {
                   value={formData.departamento}
                   onChange={handleDepartamentoChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 shadow-sm focus:border-accent-primary focus:outline-none focus:ring-1 focus:ring-accent-primary bg-primary-card text-text-primary"
                 >
                   <option value="">Seleccione un departamento</option>
                   {departamentos.map((depto) => (
@@ -730,7 +713,7 @@ const Clientes = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Ciudad*
                 </label>
                 <select
@@ -739,7 +722,7 @@ const Clientes = () => {
                   onChange={handleInputChange}
                   required
                   disabled={!formData.departamento || loadingLocalidades}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:bg-gray-100"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 shadow-sm focus:border-accent-primary focus:outline-none focus:ring-1 focus:ring-accent-primary bg-primary-card text-text-primary disabled:bg-text-disabled/20"
                 >
                   <option value="">Seleccione una ciudad</option>
                   {ciudades.map((ciudad) => (
@@ -749,7 +732,7 @@ const Clientes = () => {
                   ))}
                 </select>
                 {loadingLocalidades && (
-                  <p className="mt-1 text-sm text-gray-500">Cargando ciudades...</p>
+                  <p className="mt-1 text-sm text-text-secondary">Cargando ciudades...</p>
                 )}
               </div>
             </div>
@@ -757,7 +740,7 @@ const Clientes = () => {
             {/* Columna Derecha */}
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Dirección*
                 </label>
                 <input
@@ -766,12 +749,12 @@ const Clientes = () => {
                   value={formData.direccion}
                   onChange={handleInputChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 shadow-sm focus:border-accent-primary focus:outline-none focus:ring-1 focus:ring-accent-primary bg-primary-card text-text-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Consumo Mensual (kWh)*
                 </label>
                 <input
@@ -781,12 +764,12 @@ const Clientes = () => {
                   value={formData.consumo_mensual_kwh}
                   onChange={handleInputChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 shadow-sm focus:border-accent-primary focus:outline-none focus:ring-1 focus:ring-accent-primary bg-primary-card text-text-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Tarifa de Energía (COP/kWh)*
                 </label>
                 <input
@@ -796,12 +779,12 @@ const Clientes = () => {
                   value={formData.tarifa_energia}
                   onChange={handleInputChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 shadow-sm focus:border-accent-primary focus:outline-none focus:ring-1 focus:ring-accent-primary bg-primary-card text-text-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Tipo de Red*
                 </label>
                 <select
@@ -809,7 +792,7 @@ const Clientes = () => {
                   value={formData.tipo_red}
                   onChange={handleInputChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 shadow-sm focus:border-accent-primary focus:outline-none focus:ring-1 focus:ring-accent-primary bg-primary-card text-text-primary"
                 >
                   <option value="Monofásica 110V">Monofásica 110V</option>
                   <option value="Bifásica 220V">Bifásica 220V</option>
@@ -830,14 +813,14 @@ const Clientes = () => {
             <button
               type="button"
               onClick={() => setIsCreateModalOpen(false)}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+              className="rounded-md border border-text-disabled/30 px-4 py-2 text-sm font-medium text-text-secondary hover:bg-text-disabled/20 focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={esperandoRespuesta}
-              className="rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50"
+              className="rounded-md bg-accent-primary px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 disabled:opacity-50 transition-colors"
             >
               {esperandoRespuesta ? "Registrando..." : "Registrar"}
             </button>
@@ -856,7 +839,7 @@ const Clientes = () => {
             {/* Columna Izquierda */}
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   NIC*
                 </label>
                 <input
@@ -865,12 +848,12 @@ const Clientes = () => {
                   value={editFormData.nic}
                   onChange={handleEditInputChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Tipo de Cliente*
                 </label>
                 <select 
@@ -878,7 +861,7 @@ const Clientes = () => {
                   value={editFormData.tipo_cliente}
                   onChange={handleEditInputChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
                 >
                   <option value="Residencial">Residencial</option>
                   <option value="Comercial">Comercial</option>
@@ -887,7 +870,7 @@ const Clientes = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Nombre*
                 </label>
                 <input
@@ -896,12 +879,12 @@ const Clientes = () => {
                   value={editFormData.nombre}
                   onChange={handleEditInputChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Departamento*
                 </label>
                 <select
@@ -909,7 +892,7 @@ const Clientes = () => {
                   value={editFormData.departamento}
                   onChange={handleEditDepartamentoChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
                 >
                   <option value="">Seleccione un departamento</option>
                   {departamentos.map((depto) => (
@@ -921,7 +904,7 @@ const Clientes = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Ciudad*
                 </label>
                 <select
@@ -930,7 +913,7 @@ const Clientes = () => {
                   onChange={handleEditInputChange}
                   required
                   disabled={!editFormData.departamento || loadingLocalidades}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary disabled:bg-text-disabled/20"
                 >
                   <option value="">Seleccione una ciudad</option>
                   {ciudades.map((ciudad) => (
@@ -940,7 +923,7 @@ const Clientes = () => {
                   ))}
                 </select>
                 {loadingLocalidades && (
-                  <p className="mt-1 text-sm text-gray-500">Cargando ciudades...</p>
+                  <p className="mt-1 text-sm text-text-secondary">Cargando ciudades...</p>
                 )}
               </div>
             </div>
@@ -948,7 +931,7 @@ const Clientes = () => {
             {/* Columna Derecha */}
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Dirección*
                 </label>
                 <input
@@ -957,12 +940,12 @@ const Clientes = () => {
                   value={editFormData.direccion}
                   onChange={handleEditInputChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Consumo Mensual (kWh)*
                 </label>
                 <input
@@ -972,12 +955,12 @@ const Clientes = () => {
                   onChange={handleEditInputChange}
                   required
                   min="0"
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Tarifa de Energía (COP/kWh)*
                 </label>
                 <input
@@ -987,12 +970,12 @@ const Clientes = () => {
                   onChange={handleEditInputChange}
                   required
                   min="0"
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-text-secondary">
                   Tipo de Red*
                 </label>
                 <select
@@ -1000,7 +983,7 @@ const Clientes = () => {
                   value={editFormData.tipo_red}
                   onChange={handleEditInputChange}
                   required
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
                 >
                   <option value="Monofásica 110V">Monofásica 110V</option>
                   <option value="Bifásica 220V">Bifásica 220V</option>
@@ -1021,13 +1004,13 @@ const Clientes = () => {
             <button
               type="button"
               onClick={() => setIsEditModalOpen(false)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
+              className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-text-disabled/20 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+              className="rounded-lg bg-accent-primary px-4 py-2 text-white hover:bg-accent-hover transition-colors"
             >
               Guardar Cambios
             </button>
@@ -1042,7 +1025,7 @@ const Clientes = () => {
         title="Eliminar Cliente"
       >
         <div className="p-4">
-          <p className="text-gray-600">
+          <p className="text-text-secondary">
             ¿Está seguro que desea eliminar al cliente {selectedCliente?.name}?
           </p>
           {error && (
@@ -1056,13 +1039,13 @@ const Clientes = () => {
           <div className="mt-4 flex justify-end gap-2">
             <button
               onClick={() => setIsDeleteModalOpen(false)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
+              className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-text-disabled/20 transition-colors"
             >
               Cancelar
             </button>
             <button
               onClick={handleDeleteConfirm}
-              className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+              className="rounded-lg bg-red-500 px-4 py-2 text-white hover:bg-red-400 transition-colors"
             >
               Eliminar
             </button>
@@ -1078,73 +1061,73 @@ const Clientes = () => {
       >
         <div className="p-4">
           <div className="space-y-6">
-              {/* Información del Cliente */}
-              <div>
-                <h3 className="mb-4 text-lg font-semibold text-gray-800">Datos del Cliente</h3>
-                {/* Grid de dos columnas */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Columna izquierda */}
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">NIC</p>
-                      <p className="text-sm text-gray-800">{selectedCliente?.nic}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Tipo de Cliente</p>
-                      <p className="text-sm text-gray-800">{selectedCliente?.client_type}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Nombre</p>
-                      <p className="text-sm text-gray-800">{selectedCliente?.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Departamento</p>
-                      <p className="text-sm text-gray-800">{selectedCliente?.department}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Ciudad</p>
-                      <p className="text-sm text-gray-800">{selectedCliente?.city}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Dirección</p>
-                      <p className="text-sm text-gray-800">{selectedCliente?.address}</p>
-                    </div>
+            {/* Información del Cliente */}
+            <div>
+              <h3 className="mb-4 text-lg font-semibold text-text-primary">Datos del Cliente</h3>
+              {/* Grid de dos columnas */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Columna izquierda */}
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">NIC</p>
+                    <p className="text-sm text-text-primary">{selectedCliente?.nic}</p>
                   </div>
-                  
-                  {/* Columna derecha */}
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Consumo Mensual</p>
-                      <p className="text-sm text-gray-800">{formatNumber(selectedCliente?.monthly_consumption_kwh)} kWh</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Tarifa de Energía</p>
-                      <p className="text-sm text-gray-800">${formatNumber(selectedCliente?.energy_rate)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Tipo de Red</p>
-                      <p className="text-sm text-gray-800">{selectedCliente?.network_type}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Estado</p>
-                      <p className="text-sm text-gray-800">{selectedCliente?.is_active ? 'Activo' : 'Inactivo'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Usuario Asignado</p>
-                      <p className="text-sm text-gray-800">{selectedCliente?.user?.name || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Fecha de Creación</p>
-                      <p className="text-sm text-gray-800">{new Date(selectedCliente?.created_at).toLocaleDateString()}</p>
-                    </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Tipo de Cliente</p>
+                    <p className="text-sm text-text-primary">{selectedCliente?.client_type}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Nombre</p>
+                    <p className="text-sm text-text-primary">{selectedCliente?.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Departamento</p>
+                    <p className="text-sm text-text-primary">{selectedCliente?.department}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Ciudad</p>
+                    <p className="text-sm text-text-primary">{selectedCliente?.city}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Dirección</p>
+                    <p className="text-sm text-text-primary">{selectedCliente?.address}</p>
+                  </div>
+                </div>
+                
+                {/* Columna derecha */}
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Consumo Mensual</p>
+                    <p className="text-sm text-text-primary">{formatNumber(selectedCliente?.monthly_consumption_kwh)} kWh</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Tarifa de Energía</p>
+                    <p className="text-sm text-text-primary">${formatNumber(selectedCliente?.energy_rate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Tipo de Red</p>
+                    <p className="text-sm text-text-primary">{selectedCliente?.network_type}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Estado</p>
+                    <p className="text-sm text-text-primary">{selectedCliente?.is_active ? 'Activo' : 'Inactivo'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Usuario Asignado</p>
+                    <p className="text-sm text-text-primary">{selectedCliente?.user?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Fecha de Creación</p>
+                    <p className="text-sm text-text-primary">{new Date(selectedCliente?.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
               </div>
+            </div>
 
             <div className="flex justify-end">
               <button
                 onClick={() => setIsInfoModalOpen(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
+                className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-text-disabled/20 transition-colors"
               >
                 Cerrar
               </button>

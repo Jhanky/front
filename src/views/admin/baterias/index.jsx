@@ -321,7 +321,7 @@ const Baterias = () => {
     return (
       <div className="flex h-[calc(100vh-200px)] flex-col items-center justify-center gap-4">
         <Loading />
-        <span className="text-gray-600">Cargando baterías...</span>
+        <span className="text-text-secondary">Cargando baterías...</span>
       </div>
     );
   }
@@ -335,7 +335,7 @@ const Baterias = () => {
         />
         <button
           onClick={() => window.location.reload()}
-          className="rounded-lg bg-blue-600 px-6 py-2.5 text-white transition-colors hover:bg-blue-700"
+          className="rounded-lg bg-accent-primary px-6 py-2.5 text-white transition-colors hover:bg-accent-hover"
         >
           Reintentar
         </button>
@@ -352,7 +352,7 @@ const Baterias = () => {
           <div className="flex justify-end mb-4">
             <button
               onClick={handleCreate}
-              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white shadow hover:bg-green-700 focus:outline-none"
+              className="flex items-center gap-2 rounded-lg bg-accent-primary px-4 py-2 text-white shadow hover:bg-accent-hover focus:outline-none transition-colors"
             >
               <MdAdd className="h-5 w-5" />
               Agregar Batería
@@ -367,13 +367,13 @@ const Baterias = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar por marca o modelo..."
-                  className="w-full rounded-lg border border-gray-300 pl-10 pr-4 py-2 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-lg border border-text-disabled/30 pl-10 pr-4 py-2 focus:border-accent-primary focus:outline-none bg-primary-card text-text-primary"
                 />
-                <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-disabled" />
               </div>
               <button
                 type="submit"
-                className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+                className="rounded-lg bg-accent-primary px-4 py-2 text-white hover:bg-accent-hover transition-colors"
               >
                 Buscar
               </button>
@@ -405,50 +405,50 @@ const Baterias = () => {
           <div className="mt-4 overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer" onClick={() => handleSort("brand")}>Marca {sortField === "brand" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer" onClick={() => handleSort("model")}>Modelo {sortField === "model" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer" onClick={() => handleSort("capacity")}>Capacidad (Ah) {sortField === "capacity" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer" onClick={() => handleSort("voltage")}>Voltaje (V) {sortField === "voltage" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer" onClick={() => handleSort("type")}>Tipo {sortField === "type" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer" onClick={() => handleSort("price")}>Precio (COP) {sortField === "price" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Ficha Técnica</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Acciones</th>
+                <tr className="border-b border-text-disabled/20 bg-primary-card">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary cursor-pointer hover:text-accent-primary transition-colors" onClick={() => handleSort("brand")}>Marca {sortField === "brand" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary cursor-pointer hover:text-accent-primary transition-colors" onClick={() => handleSort("model")}>Modelo {sortField === "model" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary cursor-pointer hover:text-accent-primary transition-colors" onClick={() => handleSort("capacity")}>Capacidad (Ah) {sortField === "capacity" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary cursor-pointer hover:text-accent-primary transition-colors" onClick={() => handleSort("voltage")}>Voltaje (V) {sortField === "voltage" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary cursor-pointer hover:text-accent-primary transition-colors" onClick={() => handleSort("type")}>Tipo {sortField === "type" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary cursor-pointer hover:text-accent-primary transition-colors" onClick={() => handleSort("price")}>Precio (COP) {sortField === "price" && (sortOrder === "ASC" ? <MdArrowUpward /> : <MdArrowDownward />)}</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Ficha Técnica</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {!baterias || baterias.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="px-4 py-3 text-center text-sm text-gray-500">
+                    <td colSpan="8" className="px-4 py-3 text-center text-sm text-text-secondary">
                       No se encontraron baterías
                     </td>
                   </tr>
                 ) : (
                   baterias.map((bateria) => (
-                    <tr key={bateria.battery_id} className="border-b border-gray-200">
-                      <td className="px-4 py-3 text-sm text-gray-800">{bateria.brand}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{bateria.model}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{bateria.capacity}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{bateria.voltage}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{bateria.type}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{formatPrice(bateria.price)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">
+                    <tr key={bateria.battery_id} className="border-b border-text-disabled/20 hover:bg-accent-primary/5 transition-colors">
+                      <td className="px-4 py-3 text-sm text-text-primary">{bateria.brand}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{bateria.model}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{bateria.capacity}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{bateria.voltage}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{bateria.type}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{formatPrice(bateria.price)}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">
                         {bateria.technical_sheet_url && (
                           <a
                             href={getFichaTecnicaUrl(bateria.technical_sheet_url)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-700"
+                            className="text-accent-primary hover:text-accent-hover transition-colors"
                           >
                             <MdVisibility className="h-5 w-5" />
                           </a>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-800">
+                      <td className="px-4 py-3 text-sm text-text-primary">
                         <div className="flex gap-2">
-                          <button onClick={() => handleInfo(bateria)} className="text-blue-600 hover:text-blue-700"><MdVisibility className="h-5 w-5" /></button>
-                          <button onClick={() => handleEdit(bateria)} className="text-green-600 hover:text-green-700"><MdEdit className="h-5 w-5" /></button>
-                          <button onClick={() => handleDelete(bateria)} className="text-red-600 hover:text-red-700"><MdDelete className="h-5 w-5" /></button>
+                          <button onClick={() => handleInfo(bateria)} className="text-blue-500 hover:text-blue-400 transition-colors"><MdVisibility className="h-5 w-5" /></button>
+                          <button onClick={() => handleEdit(bateria)} className="text-accent-primary hover:text-accent-hover transition-colors"><MdEdit className="h-5 w-5" /></button>
+                          <button onClick={() => handleDelete(bateria)} className="text-red-500 hover:text-red-400 transition-colors"><MdDelete className="h-5 w-5" /></button>
                         </div>
                       </td>
                     </tr>
@@ -461,21 +461,21 @@ const Baterias = () => {
           {/* Paginación */}
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
+              <div className="text-sm text-text-secondary">
                 Página {currentPage} de {totalPages}
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 disabled:opacity-50"
+                  className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-text-disabled/20 disabled:opacity-50 transition-colors"
                 >
                   Anterior
                 </button>
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 disabled:opacity-50"
+                  className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-text-disabled/20 disabled:opacity-50 transition-colors"
                 >
                   Siguiente
                 </button>
@@ -495,56 +495,56 @@ const Baterias = () => {
           <div className="p-4">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Marca*</label>
-                <input type="text" name="brand" value={formData.brand} onChange={handleInputChange} required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" placeholder="Ej: Trojan" />
+                <label className="block text-sm font-medium text-text-secondary">Marca*</label>
+                <input type="text" name="brand" value={formData.brand} onChange={handleInputChange} required className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary" placeholder="Ej: Trojan" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Modelo*</label>
-                <input type="text" name="model" value={formData.model} onChange={handleInputChange} required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" placeholder="Ej: T-105" />
+                <label className="block text-sm font-medium text-text-secondary">Modelo*</label>
+                <input type="text" name="model" value={formData.model} onChange={handleInputChange} required className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary" placeholder="Ej: T-105" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Capacidad (Ah)*</label>
-                <input type="number" name="capacity" value={formData.capacity} onChange={handleInputChange} required min="0" step="0.01" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" placeholder="Ej: 100" />
+                <label className="block text-sm font-medium text-text-secondary">Capacidad (Ah)*</label>
+                <input type="number" name="capacity" value={formData.capacity} onChange={handleInputChange} required min="0" step="0.01" className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary" placeholder="Ej: 100" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Voltaje (V)*</label>
-                <input type="number" name="voltage" value={formData.voltage} onChange={handleInputChange} required min="0" step="0.01" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" placeholder="Ej: 12" />
+                <label className="block text-sm font-medium text-text-secondary">Voltaje (V)*</label>
+                <input type="number" name="voltage" value={formData.voltage} onChange={handleInputChange} required min="0" step="0.01" className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary" placeholder="Ej: 12" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Tipo*</label>
-                <select name="type" value={formData.type} onChange={handleInputChange} required className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2">
+                <label className="block text-sm font-medium text-text-secondary">Tipo*</label>
+                <select name="type" value={formData.type} onChange={handleInputChange} required className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary">
                   <option value="Litio">Litio</option>
                   <option value="AGM">AGM</option>
                   <option value="GEL">GEL</option>
                   <option value="Plomo-Ácido">Plomo-Ácido</option>
                 </select>
               </div>
+                              <div>
+                  <label className="block text-sm font-medium text-text-secondary">Precio (COP)*</label>
+                  <input type="number" name="price" value={formData.price} onChange={handleInputChange} required min="0" step="0.01" className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary" placeholder="Ej: 150000" />
+                </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Precio (COP)*</label>
-                <input type="number" name="price" value={formData.price} onChange={handleInputChange} required min="0" step="0.01" className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2" placeholder="Ej: 150000" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Ficha Técnica (PDF)</label>
-                <div className="mt-1 flex justify-center rounded-lg border border-dashed border-gray-300 px-6 py-10">
+                <label className="block text-sm font-medium text-text-secondary">Ficha Técnica (PDF)</label>
+                <div className="mt-1 flex justify-center rounded-lg border border-dashed border-text-disabled/30 px-6 py-10 bg-primary-card">
                   <div className="text-center">
-                    <MdCloudUpload className="mx-auto h-12 w-12 text-gray-400" />
-                    <div className="mt-4 flex text-sm leading-6 text-gray-600">
-                      <label htmlFor="file-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-blue-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-600 focus-within:ring-offset-2 hover:text-blue-500">
+                    <MdCloudUpload className="mx-auto h-12 w-12 text-text-disabled" />
+                    <div className="mt-4 flex text-sm leading-6 text-text-secondary">
+                      <label htmlFor="file-upload" className="relative cursor-pointer rounded-md bg-primary-card font-semibold text-accent-primary focus-within:outline-none focus-within:ring-2 focus-within:ring-accent-primary focus-within:ring-offset-2 hover:text-accent-hover transition-colors">
                         <span>Subir archivo</span>
                         <input id="file-upload" name="technical_sheet" type="file" accept=".pdf" onChange={handleFileChange} className="sr-only" />
                       </label>
                       <p className="pl-1">o arrastrar y soltar</p>
                     </div>
-                    <p className="text-xs leading-5 text-gray-600">Solo archivos PDF hasta 10MB</p>
+                    <p className="text-xs leading-5 text-text-secondary">Solo archivos PDF hasta 10MB</p>
                   </div>
                 </div>
                 {formData.technical_sheet && (
-                  <p className="mt-2 text-sm text-gray-500">Archivo seleccionado: {formData.technical_sheet.name}</p>
+                  <p className="mt-2 text-sm text-text-secondary">Archivo seleccionado: {formData.technical_sheet.name}</p>
                 )}
               </div>
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => { setIsCreateModalOpen(false); setIsEditModalOpen(false); }} className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800">Cancelar</button>
-                <button type="submit" disabled={loading} className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50">
+                <button type="button" onClick={() => { setIsCreateModalOpen(false); setIsEditModalOpen(false); }} className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-text-disabled/20 transition-colors">Cancelar</button>
+                <button type="submit" disabled={loading} className="rounded-lg bg-accent-primary px-4 py-2 text-white hover:bg-accent-hover disabled:opacity-50 transition-colors">
                   {loading ? (isEditModalOpen ? "Actualizando..." : "Creando...") : isEditModalOpen ? "Guardar Cambios" : "Guardar"}
                 </button>
               </div>
@@ -559,10 +559,10 @@ const Baterias = () => {
           title="Eliminar Batería"
         >
           <div className="p-4">
-            <p className="text-gray-600">¿Está seguro que desea eliminar la batería {selectedBateria?.model}?</p>
+            <p className="text-text-secondary">¿Está seguro que desea eliminar la batería {selectedBateria?.model}?</p>
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setIsDeleteModalOpen(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800">Cancelar</button>
-              <button onClick={handleDeleteConfirm} disabled={loading} className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50">{loading ? "Eliminando..." : "Eliminar"}</button>
+              <button onClick={() => setIsDeleteModalOpen(false)} className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-text-disabled/20 transition-colors">Cancelar</button>
+              <button onClick={handleDeleteConfirm} disabled={loading} className="rounded-lg bg-red-500 px-4 py-2 text-white hover:bg-red-400 disabled:opacity-50 transition-colors">{loading ? "Eliminando..." : "Eliminar"}</button>
             </div>
           </div>
         </Modal>
@@ -576,7 +576,7 @@ const Baterias = () => {
           <div className="p-4">
             <div className="space-y-6">
               <div>
-                <h3 className="mb-4 text-lg font-semibold text-gray-800">Datos de la Batería</h3>
+                <h3 className="mb-4 text-lg font-semibold text-text-primary">Datos de la Batería</h3>
                 {bateriaInfo ? (
                   <div className="grid grid-cols-2 gap-4">
                     <div>

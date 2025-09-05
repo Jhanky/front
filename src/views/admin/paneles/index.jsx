@@ -211,17 +211,7 @@ const Paneles = () => {
         ? getApiUrl(`/api/panels/${selectedPanel.panel_id}`)
         : getApiUrl('/api/panels');
 
-        console.log("=== ENVIANDO CON ARCHIVO ===");
-        console.log("URL:", url);
-        console.log("Método:", isEditModalOpen ? "PUT" : "POST");
-        console.log("Datos del formulario:", formData);
-        console.log("Archivo:", formData.ficha_tecnica);
-        console.log("FormData entries:");
-        for (let [key, value] of formDataToSend.entries()) {
-          console.log(`  ${key}:`, value);
-        }
 
-        console.log("Token de autorización:", user.token);
         
         // Verificar que el token existe
         if (!user.token) {
@@ -237,17 +227,8 @@ const Paneles = () => {
         body: formDataToSend
       });
 
-        console.log("=== RESPUESTA DEL SERVIDOR ===");
-        console.log("Status de respuesta:", response.status);
-        console.log("Status text:", response.statusText);
-        console.log("Headers de respuesta:");
-        for (let [key, value] of response.headers.entries()) {
-          console.log(`  ${key}: ${value}`);
-        }
-
         // Verificar si la respuesta es JSON válido
         const contentType = response.headers.get("content-type");
-        console.log("Content-Type:", contentType);
         
         if (!contentType || !contentType.includes("application/json")) {
           const textResponse = await response.text();
@@ -259,8 +240,6 @@ const Paneles = () => {
         }
 
       const data = await response.json();
-        console.log("=== RESPUESTA JSON ===");
-        console.log("Respuesta con archivo:", data);
 
       if (!response.ok) {
           console.error("Error en respuesta:", response.status, data);
@@ -285,11 +264,7 @@ const Paneles = () => {
           ? getApiUrl(`/api/panels/${selectedPanel.panel_id}`)
           : getApiUrl('/api/panels');
 
-        console.log("Enviando sin archivo:", url);
-        console.log("Datos del formulario:", formData);
-        console.log("Panel data:", panelData);
 
-        console.log("Token de autorización:", user.token);
         
         // Verificar que el token existe
         if (!user.token) {
@@ -305,8 +280,7 @@ const Paneles = () => {
           body: JSON.stringify(panelData)
         });
 
-        console.log("Status de respuesta:", response.status);
-        console.log("Headers de respuesta:", response.headers);
+
 
         // Verificar si la respuesta es JSON válido
         const contentType = response.headers.get("content-type");
@@ -446,7 +420,7 @@ const Paneles = () => {
     return (
       <div className="flex h-[calc(100vh-200px)] flex-col items-center justify-center gap-4">
         <Loading />
-        <span className="text-gray-600">Cargando paneles...</span>
+        <span className="text-text-secondary">Cargando paneles...</span>
       </div>
     );
   }
@@ -460,7 +434,7 @@ const Paneles = () => {
         />
         <button
           onClick={() => window.location.reload()}
-          className="rounded-lg bg-blue-600 px-6 py-2.5 text-white transition-colors hover:bg-blue-700"
+          className="rounded-lg bg-accent-primary px-6 py-2.5 text-white transition-colors hover:bg-accent-hover"
         >
           Reintentar
         </button>
@@ -473,12 +447,12 @@ const Paneles = () => {
       <div className="col-span-1 h-fit w-full xl:col-span-2 2xl:col-span-3">
         <Card extra="w-full h-full px-8 pb-8">
           <div className="flex items-center justify-between py-4">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+            <h1 className="text-2xl font-bold text-text-primary">
               Paneles Solares
             </h1>
             <button
               onClick={handleCreate}
-              className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-white hover:bg-green-700"
+              className="flex items-center gap-2 rounded-lg bg-accent-primary px-6 py-2.5 text-white hover:bg-accent-hover transition-colors"
             >
               <MdAdd className="h-5 w-5" />
               Agregar Panel
@@ -494,13 +468,13 @@ const Paneles = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar por marca o modelo..."
-                  className="w-full rounded-lg border border-gray-300 pl-10 pr-4 py-2 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-lg border border-text-disabled/30 pl-10 pr-4 py-2 focus:border-accent-primary focus:outline-none bg-primary-card text-text-primary"
                 />
-                <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-disabled" />
               </div>
               <button
                 type="submit"
-                className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+                className="rounded-lg bg-accent-primary px-4 py-2 text-white hover:bg-accent-hover transition-colors"
               >
                 Buscar
               </button>
@@ -532,9 +506,9 @@ const Paneles = () => {
           <div className="mt-4 overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
+                <tr className="border-b border-text-disabled/20 bg-primary-card">
                   <th 
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer"
+                    className="px-4 py-3 text-left text-sm font-semibold text-text-primary cursor-pointer hover:text-accent-primary transition-colors"
                     onClick={() => handleSort("marca")}
                   >
                     <div className="flex items-center gap-1">
@@ -545,7 +519,7 @@ const Paneles = () => {
                     </div>
                   </th>
                   <th 
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer"
+                    className="px-4 py-3 text-left text-sm font-semibold text-text-primary cursor-pointer hover:text-accent-primary transition-colors"
                     onClick={() => handleSort("modelo")}
                   >
                     <div className="flex items-center gap-1">
@@ -556,7 +530,7 @@ const Paneles = () => {
                     </div>
                   </th>
                   <th 
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer"
+                    className="px-4 py-3 text-left text-sm font-semibold text-text-primary cursor-pointer hover:text-accent-primary transition-colors"
                     onClick={() => handleSort("potencia")}
                   >
                     <div className="flex items-center gap-1">
@@ -567,7 +541,7 @@ const Paneles = () => {
                     </div>
                   </th>
                   <th 
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer"
+                    className="px-4 py-3 text-left text-sm font-semibold text-text-primary cursor-pointer hover:text-accent-primary transition-colors"
                     onClick={() => handleSort("tipo")}
                   >
                     <div className="flex items-center gap-1">
@@ -578,7 +552,7 @@ const Paneles = () => {
                     </div>
                   </th>
                   <th 
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-800 cursor-pointer"
+                    className="px-4 py-3 text-left text-sm font-semibold text-text-primary cursor-pointer hover:text-accent-primary transition-colors"
                     onClick={() => handleSort("precio")}
                   >
                     <div className="flex items-center gap-1">
@@ -588,54 +562,54 @@ const Paneles = () => {
                       )}
                     </div>
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Ficha Técnica</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Acciones</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Ficha Técnica</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {!filteredPaneles || filteredPaneles.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-4 py-3 text-center text-sm text-gray-500">
+                    <td colSpan="7" className="px-4 py-3 text-center text-sm text-text-secondary">
                       No se encontraron paneles
                     </td>
                   </tr>
                 ) : (
                   filteredPaneles.map((panel) => (
-                    <tr key={panel.panel_id} className="border-b border-gray-200">
-                      <td className="px-4 py-3 text-sm text-gray-800">{panel.brand}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{panel.model}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{panel.power}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{panel.type}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{formatPrice(panel.price)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">
+                    <tr key={panel.panel_id} className="border-b border-text-disabled/20 hover:bg-accent-primary/5 transition-colors">
+                      <td className="px-4 py-3 text-sm text-text-primary">{panel.brand}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{panel.model}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{panel.power}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{panel.type}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">{formatPrice(panel.price)}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary">
                         {panel.technical_sheet_url && (
                           <a
                             href={getFichaTecnicaUrl(panel.technical_sheet_url)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-700"
+                            className="text-accent-primary hover:text-accent-hover transition-colors"
                           >
                             <MdVisibility className="h-5 w-5" />
                           </a>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-800">
+                      <td className="px-4 py-3 text-sm text-text-primary">
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleInfo(panel)}
-                            className="text-blue-600 hover:text-blue-700"
+                            className="text-blue-500 hover:text-blue-400 transition-colors"
                           >
                             <MdVisibility className="h-5 w-5" />
                           </button>
                           <button
                             onClick={() => handleEdit(panel)}
-                            className="text-green-600 hover:text-green-700"
+                            className="text-accent-primary hover:text-accent-hover transition-colors"
                           >
                             <MdEdit className="h-5 w-5" />
                           </button>
                           <button
                             onClick={() => handleDelete(panel)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-500 hover:text-red-400 transition-colors"
                           >
                             <MdDelete className="h-5 w-5" />
                           </button>
@@ -651,21 +625,21 @@ const Paneles = () => {
           {/* Paginación */}
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
+              <div className="text-sm text-text-secondary">
                 Página {currentPage} de {totalPages}
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 disabled:opacity-50"
+                  className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-text-disabled/20 disabled:opacity-50 transition-colors"
                 >
                   Anterior
                 </button>
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 disabled:opacity-50"
+                  className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-text-disabled/20 disabled:opacity-50 transition-colors"
                 >
                   Siguiente
                 </button>
@@ -687,7 +661,7 @@ const Paneles = () => {
         <div className="p-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-text-secondary">
                 Marca*
               </label>
               <input
@@ -696,12 +670,12 @@ const Paneles = () => {
                 value={formData.marca}
                 onChange={handleInputChange}
                 required
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
                 placeholder="Ej: SunPower"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-text-secondary">
                 Modelo*
               </label>
               <input
@@ -710,12 +684,12 @@ const Paneles = () => {
                 value={formData.modelo}
                 onChange={handleInputChange}
                 required
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
                 placeholder="Ej: X-Series X22-360"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-text-secondary">
                 Potencia (W)*
               </label>
               <input
@@ -726,12 +700,12 @@ const Paneles = () => {
                 required
                 min="0"
                 step="1"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
                 placeholder="Ej: 360"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-text-secondary">
                 Tipo*
               </label>
               <select
@@ -739,7 +713,7 @@ const Paneles = () => {
                 value={formData.tipo}
                 onChange={handleInputChange}
                 required
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
               >
                 <option value="Monocristalino">Monocristalino</option>
                 <option value="Policristalino">Policristalino</option>
@@ -747,7 +721,7 @@ const Paneles = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-text-secondary">
                 Precio (USD)*
               </label>
               <input
@@ -758,21 +732,21 @@ const Paneles = () => {
                 required
                 min="0"
                 step="0.01"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary"
                 placeholder="Ej: 250.00"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-text-secondary">
                 Ficha Técnica (PDF)
               </label>
-              <div className="mt-1 flex justify-center rounded-lg border border-dashed border-gray-300 px-6 py-10">
+              <div className="mt-1 flex justify-center rounded-lg border border-dashed border-text-disabled/30 px-6 py-10 bg-primary-card">
                 <div className="text-center">
-                  <MdCloudUpload className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="mt-4 flex text-sm leading-6 text-gray-600">
+                  <MdCloudUpload className="mx-auto h-12 w-12 text-text-disabled" />
+                  <div className="mt-4 flex text-sm leading-6 text-text-secondary">
                     <label
                       htmlFor="file-upload"
-                      className="relative cursor-pointer rounded-md bg-white font-semibold text-blue-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-600 focus-within:ring-offset-2 hover:text-blue-500"
+                      className="relative cursor-pointer rounded-md bg-primary-card font-semibold text-accent-primary focus-within:outline-none focus-within:ring-2 focus-within:ring-accent-primary focus-within:ring-offset-2 hover:text-accent-hover transition-colors"
                     >
                       <span>Subir archivo</span>
                       <input
@@ -786,13 +760,13 @@ const Paneles = () => {
                     </label>
                     <p className="pl-1">o arrastrar y soltar</p>
                   </div>
-                  <p className="text-xs leading-5 text-gray-600">
+                  <p className="text-xs leading-5 text-text-secondary">
                     Solo archivos PDF hasta 10MB
                   </p>
                 </div>
               </div>
               {formData.ficha_tecnica && (
-                <p className="mt-2 text-sm text-gray-500">
+                <p className="mt-2 text-sm text-text-secondary">
                   Archivo seleccionado: {formData.ficha_tecnica.name}
                 </p>
               )}
@@ -804,14 +778,14 @@ const Paneles = () => {
                   setIsCreateModalOpen(false);
                   setIsEditModalOpen(false);
                 }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
+                className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-text-disabled/20 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
+                className="rounded-lg bg-accent-primary px-4 py-2 text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
               >
                 {loading
                   ? (isEditModalOpen
@@ -833,21 +807,21 @@ const Paneles = () => {
         title="Eliminar Panel"
       >
         <div className="p-4">
-          <p className="text-gray-600">
+          <p className="text-text-secondary">
             ¿Está seguro que desea eliminar el panel {selectedPanel?.modelo}?
           </p>
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              onClick={() => setIsDeleteModalOpen(false)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleDeleteConfirm}
-              disabled={loading}
-              className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50"
-            >
+                      <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-text-disabled/20 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={loading}
+                className="rounded-lg bg-red-500 px-4 py-2 text-white hover:bg-red-400 disabled:opacity-50 transition-colors"
+              >
               {loading ? "Eliminando..." : "Eliminar"}
             </button>
           </div>
@@ -865,51 +839,51 @@ const Paneles = () => {
       >
         <div className="p-4">
           <div className="space-y-6">
-            <div>
-              <h3 className="mb-4 text-lg font-semibold text-gray-800">Datos del Panel</h3>
+                          <div>
+                <h3 className="mb-4 text-lg font-semibold text-text-primary">Datos del Panel</h3>
               {panelInfo ? (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Marca</p>
-                    <p className="text-sm text-gray-800">{panelInfo.brand}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Modelo</p>
-                    <p className="text-sm text-gray-800">{panelInfo.model}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Potencia</p>
-                    <p className="text-sm text-gray-800">{panelInfo.power} W</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Tipo</p>
-                    <p className="text-sm text-gray-800">{panelInfo.type}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Precio</p>
-                    <p className="text-sm text-gray-800">${Number(panelInfo.price).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Ficha Técnica</p>
-                    {panelInfo.technical_sheet_url ? (
+                              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Marca</p>
+                      <p className="text-sm text-text-primary">{panelInfo.brand}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Modelo</p>
+                      <p className="text-sm text-text-primary">{panelInfo.model}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Potencia</p>
+                      <p className="text-sm text-text-primary">{panelInfo.power} W</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Tipo</p>
+                      <p className="text-sm text-text-primary">{panelInfo.type}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Precio</p>
+                      <p className="text-sm text-text-primary">${Number(panelInfo.price).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-text-secondary">Ficha Técnica</p>
+                      {panelInfo.technical_sheet_url ? (
                     <a
                         href={getTechnicalSheetUrl(panelInfo.technical_sheet_url)}
                       target="_blank"
                       rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-700 underline"
+                        className="text-accent-primary hover:text-accent-hover underline transition-colors"
                     >
                       Ver PDF
                     </a>
                   ) : (
-                    <p className="text-sm text-gray-500">No disponible</p>
+                    <p className="text-sm text-text-disabled">No disponible</p>
                   )}
+                  </div>
                 </div>
-              </div>
               ) : (
                 <div className="flex items-center justify-center py-8">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-2 text-sm text-gray-600">Cargando información...</p>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-primary mx-auto"></div>
+                    <p className="mt-2 text-sm text-text-secondary">Cargando información...</p>
                   </div>
                 </div>
               )}
@@ -921,7 +895,7 @@ const Paneles = () => {
                   setIsInfoModalOpen(false);
                   setPanelInfo(null);
                 }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-800"
+                className="rounded-lg border border-text-disabled/30 px-4 py-2 text-text-secondary hover:bg-text-disabled/20 transition-colors"
               >
                 Cerrar
               </button>

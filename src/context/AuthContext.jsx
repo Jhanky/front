@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { getApiUrl } from '../config/api';
+import { getApiUrl, API_CONFIG } from '../config/api';
 
 const AuthContext = createContext(null);
 
-// Mapeo de roles para compatibilidad
+// Mapeo de roles para compatibilidad con el sistema de rutas
 const ROLES = {
-  1: "admin",      // Administrador
-  2: "comercial",  // Comercial  
-  3: "tecnico"     // Técnico
+  1: "administrador",  // Administrador
+  2: "comercial",      // Comercial  
+  3: "tecnico"         // Técnico
 };
 
 export const AuthProvider = ({ children }) => {
@@ -17,23 +17,42 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Verificar si hay una sesión guardada
     const storedUser = localStorage.getItem("user");
+    const userData = localStorage.getItem("user_data");
     
-    if (storedUser) {
+    if (storedUser || userData) {
       try {
-        const parsedUser = JSON.parse(storedUser);
-        // Verificar si el token ha expirado
-        if (parsedUser.token) {
+        let parsedUser;
+        
+        if (storedUser) {
+          parsedUser = JSON.parse(storedUser);
+        } else if (userData) {
+          const userFromData = JSON.parse(userData);
+          const token = localStorage.getItem("access_token");
+          parsedUser = {
+            ...userFromData,
+            token: token
+          };
+        }
+        
+        // Verificar si el usuario tiene datos válidos
+        if (parsedUser && (parsedUser.token || parsedUser.id)) {
           // Asegurarnos de que el usuario tenga un rol
-          if (!parsedUser.role) {
-            parsedUser.role = "admin"; // Rol por defecto para usuarios existentes
+          if (!parsedUser.role && parsedUser.roles && parsedUser.roles.length > 0) {
+            parsedUser.role = parsedUser.roles[0].name;
+          } else if (!parsedUser.role) {
+            parsedUser.role = "administrador"; // Rol por defecto
           }
           setUser(parsedUser);
         } else {
           localStorage.removeItem("user");
+          localStorage.removeItem("user_data");
+          localStorage.removeItem("access_token");
         }
       } catch (error) {
         console.error("Error al parsear usuario almacenado:", error);
         localStorage.removeItem("user");
+        localStorage.removeItem("user_data");
+        localStorage.removeItem("access_token");
       }
     }
     setLoading(false);
@@ -41,8 +60,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      console.log('Intentando login con:', { email });
-      console.log('URL de login:', getApiUrl('/api/auth/login'));
+      
       
       const response = await fetch(getApiUrl('/api/auth/login'), {
         method: "POST",
@@ -56,50 +74,77 @@ export const AuthProvider = ({ children }) => {
         })
       });
 
-      console.log('Response status:', response.status);
       
-      const data = await response.json();
-      console.log('Response data:', data);
+      
+              const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.message || data.mensaje || "Error al iniciar sesión");
       }
 
-      // Adaptar la respuesta de Laravel a la estructura esperada
+      // Procesar la respuesta según las especificaciones de la API
       let userData;
       
-      if (data.user && data.token) {
-        // Estructura típica de Laravel con Sanctum/Passport
+      if (data.success && data.data) {
+        // Estructura: { success: true, data: { user: {...}, token: "..." } }
+        const user = data.data.user;
+        const token = data.data.token;
+        
         userData = {
-          id: data.user.id,
-          email: data.user.email,
-          first_name: data.user.first_name || data.user.name?.split(' ')[0] || '',
-          last_name: data.user.last_name || data.user.name?.split(' ').slice(1).join(' ') || '',
-          name: data.user.name || `${data.user.first_name} ${data.user.last_name}`,
-          role: ROLES[data.user.role_id] || data.user.role || "admin",
-          role_id: data.user.role_id,
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          username: user.username,
+          phone: user.phone,
+          job_title: user.job_title,
+          profile_photo: user.profile_photo,
+          roles: user.roles || [],
+          role: user.roles && user.roles.length > 0 ? user.roles[0].name : "administrador",
+          token: token
+        };
+      } else if (data.user && data.token) {
+        // Estructura: { user: {...}, token: "..." }
+        const user = data.user;
+        
+        userData = {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          username: user.username,
+          phone: user.phone,
+          job_title: user.job_title,
+          profile_photo: user.profile_photo,
+          roles: user.roles || [],
+          role: user.roles && user.roles.length > 0 ? user.roles[0].name : "administrador",
           token: data.token
         };
       } else if (data.access_token) {
         // Estructura alternativa con access_token
+        const user = data.user || data;
+        
         userData = {
-          id: data.user?.id || data.id,
-          email: data.user?.email || data.email,
-          first_name: data.user?.first_name || data.first_name || '',
-          last_name: data.user?.last_name || data.last_name || '',
-          name: data.user?.name || data.name || `${data.first_name} ${data.last_name}`,
-          role: ROLES[data.user?.role_id || data.role_id] || data.role || "admin",
-          role_id: data.user?.role_id || data.role_id,
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          username: user.username,
+          phone: user.phone,
+          job_title: user.job_title,
+          profile_photo: user.profile_photo,
+          roles: user.roles || [],
+          role: user.roles && user.roles.length > 0 ? user.roles[0].name : "administrador",
           token: data.access_token
         };
       } else {
-        throw new Error("Estructura de respuesta no reconocida");
+        console.error('Estructura de respuesta no reconocida:', data);
+        throw new Error("Estructura de respuesta no reconocida. Por favor, verifique la configuración de la API.");
       }
 
-      console.log('Usuario procesado:', userData);
+      
 
       // Guardar usuario y token en localStorage
       localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("user_data", JSON.stringify(userData));
+      localStorage.setItem("access_token", userData.token);
 
       // Actualizar el estado
       setUser(userData);
@@ -113,7 +158,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      const token = user?.token;
+      const token = user?.token || localStorage.getItem("access_token");
       if (token) {
         // Intentar hacer logout en el servidor
         try {
@@ -135,6 +180,8 @@ export const AuthProvider = ({ children }) => {
     } finally {
       // Limpiar datos locales siempre
       localStorage.removeItem("user");
+      localStorage.removeItem("user_data");
+      localStorage.removeItem("access_token");
       localStorage.removeItem("redirectPath");
       setUser(null);
     }

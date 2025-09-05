@@ -8,6 +8,7 @@ import Loading from "components/loading";
 import { useNavigate } from "react-router-dom";
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { getApiUrl } from '../../../config/api';
 
 // Nuevo componente para el modal de edición
 function EditCotizacionModal({
@@ -51,9 +52,9 @@ function EditCotizacionModal({
     if (isOpen && selectedCotizacion) {
       setLoading(true);
       Promise.all([
-        fetch("http://localhost:3000/api/quotation-statuses").then(res => res.json()),
-        fetch(`http://localhost:3000/api/quotations/${selectedCotizacion.id}`).then(res => res.json()),
-        fetch("http://localhost:3000/api/batteries").then(res => res.json()).then(data => data.batteries || [])
+        fetch(getApiUrl("/api/quotation-statuses")).then(res => res.json()),
+        fetch(getApiUrl(`/api/quotations/${selectedCotizacion.id}`)).then(res => res.json()),
+        fetch(getApiUrl("/api/batteries")).then(res => res.json()).then(data => data.batteries || [])
       ]).then(([statusesData, cotizacionData, bateriasData]) => {
         setStatuses(Array.isArray(statusesData) ? statusesData : []);
         setProjectName(cotizacionData.project_name || "");
@@ -123,7 +124,7 @@ function EditCotizacionModal({
         panel_count: panelProduct.quantity ? parseInt(panelProduct.quantity) : 0,
         products
       };
-      const res = await fetch(`http://localhost:3000/api/quotations/${selectedCotizacion.id}`, {
+      const res = await fetch(getApiUrl(`/api/quotations/${selectedCotizacion.id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
@@ -234,9 +235,7 @@ const Cotizaciones = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedCotizacion, setSelectedCotizacion] = useState(null);
-  const [cotizacionDetalles, setCotizacionDetalles] = useState(null);
   const [search, setSearch] = useState("");
   const [productos, setProductos] = useState([]);
   const [items, setItems] = useState([]);
@@ -273,8 +272,7 @@ const Cotizaciones = () => {
   const [nombreProyecto, setNombreProyecto] = useState("");
   const [usuarioLogueado, setUsuarioLogueado] = useState(null);
 
-  // Estados para carga de detalles
-  const [loadingDetalles, setLoadingDetalles] = useState(false);
+
 
   // 1. Agregar estados para batería
   const [bateriaSeleccionada, setBateriaSeleccionada] = useState(null);
@@ -284,7 +282,7 @@ const Cotizaciones = () => {
   // 2. Cargar baterías si el sistema no es Interconectado
   useEffect(() => {
     if (tipoSistema && tipoSistema !== "Interconectado") {
-      fetch("http://localhost:3000/api/batteries", {
+      fetch(getApiUrl("/api/batteries"), {
         headers: { "Authorization": `Bearer ${user.token}` }
       })
         .then(res => res.json())
@@ -301,7 +299,7 @@ const Cotizaciones = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch("http://localhost:3000/api/users/me/id", {
+      const response = await fetch(getApiUrl("/api/users/me/id"), {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -314,7 +312,7 @@ const Cotizaciones = () => {
       }
 
       const data = await response.json();
-      console.log("Datos del usuario logueado:", data);
+      
       
       // Crear objeto con la estructura esperada
       const usuarioData = {
@@ -344,7 +342,7 @@ const Cotizaciones = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      const response = await fetch("http://localhost:3000/api/quotations", {
+      const response = await fetch(getApiUrl("/api/quotations"), {
         headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
@@ -407,10 +405,9 @@ const Cotizaciones = () => {
         throw new Error("No hay token de autenticación");
       }
 
-      console.log("Eliminando cotización:", selectedCotizacion.id);
-      console.log("Token:", token);
+      
 
-      const response = await fetch(`http://localhost:3000/api/quotations/${selectedCotizacion.id}`, {
+      const response = await fetch(getApiUrl(`/api/quotations/${selectedCotizacion.id}`), {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -458,7 +455,7 @@ const Cotizaciones = () => {
       }]);
 
       // Llama al endpoint de tu backend para obtener el PDF
-      const response = await fetch(`http://localhost:3000/api/quotations/${cotizacion.id}/pdfkit`, {
+      const response = await fetch(getApiUrl(`/api/quotations/${cotizacion.id}/pdfkit`), {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -664,9 +661,9 @@ const Cotizaciones = () => {
         ]
       };
 
-      console.log("JSON que se está enviando:", JSON.stringify(cotizacionData, null, 2));
       
-      const response = await fetch("http://localhost:3000/api/quotations", {
+      
+      const response = await fetch(getApiUrl("/api/quotations"), {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -681,7 +678,7 @@ const Cotizaciones = () => {
       }
 
       const data = await response.json();
-      console.log("Respuesta del servidor:", data);
+      
       
       // Cerrar modal y limpiar formulario
       setIsCreateModalOpen(false);
@@ -818,7 +815,7 @@ const Cotizaciones = () => {
   // Función para cargar todos los clientes
   const cargarClientes = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/clients", {
+      const response = await fetch(getApiUrl("/api/clients"), {
         headers: {
           "Authorization": `Bearer ${user.token}`
         }
@@ -869,7 +866,7 @@ const Cotizaciones = () => {
   // Función para cargar paneles
   const cargarPaneles = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/panels", {
+      const response = await fetch(getApiUrl("/api/panels"), {
         headers: {
           "Authorization": `Bearer ${user.token}`
         }
@@ -894,7 +891,7 @@ const Cotizaciones = () => {
   // Función para cargar inversores
   const cargarInversores = async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/inverters", {
+      const response = await fetch(getApiUrl("/api/inverters"), {
         headers: {
           "Authorization": `Bearer ${user.token}`
         }
@@ -1149,38 +1146,8 @@ const Cotizaciones = () => {
   };
 
   const handleViewDetails = async (cotizacion) => {
-    try {
-      setLoadingDetalles(true);
-      const token = user?.token;
-      if (!token) {
-        throw new Error("No hay token de autenticación");
-      }
-
-      const response = await fetch(`http://localhost:3000/api/quotations/${cotizacion.id}`, {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Error al obtener los detalles de la cotización");
-      }
-
-      const data = await response.json();
-      setCotizacionDetalles(data);
-      setIsDetailsModalOpen(true);
-    } catch (error) {
-      console.error("Error al obtener detalles:", error);
-      setError(error.message);
-      setMensajes([{
-        contenido: error.message,
-        tipo: "error"
-      }]);
-    } finally {
-      setLoadingDetalles(false);
-    }
+    // Navegar a la página de detalles en lugar de abrir modal
+    navigate(`/admin/cotizaciones/${cotizacion.quotation_id || cotizacion.id}`);
   };
 
   // Función para editar cotización
@@ -1291,7 +1258,7 @@ const Cotizaciones = () => {
         ]
       };
       // Hacer la petición PUT
-      const response = await fetch(`http://localhost:3000/api/quotations/${selectedCotizacion.id}`, {
+      const response = await fetch(getApiUrl(`/api/quotations/${selectedCotizacion.id}`), {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -1405,7 +1372,7 @@ const Cotizaciones = () => {
   useEffect(() => {
     const token = user?.token;
     if (!token) return;
-    fetch("http://localhost:3000/api/quotation-statuses", {
+    fetch(getApiUrl("/api/quotation-statuses"), {
       headers: {
         "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json"
@@ -1421,8 +1388,8 @@ const Cotizaciones = () => {
     try {
       const body = { status_id: parseInt(newStatusId) };
       const token = user?.token;
-      console.log('PUT /api/quotations/' + cotizacion.id, body, token);
-      const res = await fetch(`http://localhost:3000/api/quotations/${cotizacion.id}`, {
+      
+      const res = await fetch(getApiUrl(`/api/quotations/${cotizacion.id}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(body)
@@ -1713,7 +1680,7 @@ const Cotizaciones = () => {
                       name="potencia_kwp"
                       value={potenciaKW}
                       onChange={(e) => {
-                        console.log("Valor de potencia ingresado:", e.target.value);
+                
                         setPotenciaKW(e.target.value);
                       }}
                       step="0.1"
@@ -1732,7 +1699,7 @@ const Cotizaciones = () => {
                       name="tipo_sistema"
                       value={tipoSistema}
                       onChange={(e) => {
-                        console.log("Valor de tipo de sistema seleccionado:", e.target.value);
+                
                         setTipoSistema(e.target.value);
                         setInversorSeleccionado(null);
                       }}
@@ -1755,7 +1722,7 @@ const Cotizaciones = () => {
                       name="tipo_red"
                       value={tipoRed}
                       onChange={(e) => {
-                        console.log("Valor de tipo de red seleccionado:", e.target.value);
+                
                         setTipoRed(e.target.value);
                         setInversorSeleccionado(null);
                       }}
@@ -1790,7 +1757,7 @@ const Cotizaciones = () => {
                             <div>Precio: ${formatearNumero(inversorSeleccionado.price)}</div>
                             {inversorSeleccionado.technical_sheet_url && (
                               <a 
-                                href={`http://localhost:3000${inversorSeleccionado.technical_sheet_url}`}
+                                href={getApiUrl(inversorSeleccionado.technical_sheet_url)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:text-blue-800"
@@ -1828,7 +1795,7 @@ const Cotizaciones = () => {
                             <div>Precio: ${formatearNumero(panelSeleccionado.price)}</div>
                             {panelSeleccionado.technical_sheet_url && (
                               <a
-                                href={`http://localhost:3000${panelSeleccionado.technical_sheet_url}`}
+                                href={getApiUrl(panelSeleccionado.technical_sheet_url)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:text-blue-800"
@@ -1870,14 +1837,6 @@ const Cotizaciones = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      console.log("Estado actual antes de continuar:", {
-                        inversorSeleccionado,
-                        panelSeleccionado,
-                        cantidadInversores,
-                        cantidadPaneles,
-                        tipoSistema,
-                        potenciaKW
-                      });
                       setSeccionActual(2);
                     }}
                     disabled={!inversorSeleccionado || !panelSeleccionado || !cantidadInversores || !cantidadPaneles || !tipoSistema || !potenciaKW}
@@ -2151,250 +2110,8 @@ const Cotizaciones = () => {
         </div>
       </Modal>
 
-      {/* Modal de Detalles */}
-      <Modal
-        isOpen={isDetailsModalOpen}
-        onClose={() => setIsDetailsModalOpen(false)}
-        title="Detalles de la Cotización"
-        size="max-w-[90%]"
-      >
-        <div className="p-6">
-          {loadingDetalles ? (
-            <div className="flex h-96 items-center justify-center">
-              <Loading />
-            </div>
-          ) : cotizacionDetalles ? (
-            <div className="space-y-8">
-              {/* Encabezado */}
-              <div className="flex items-center justify-between border-b border-gray-200 pb-4">
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-800">
-                    {cotizacionDetalles.project_name}
-                  </h1>
-                  <p className="text-gray-600">
-                    Cotización #{cotizacionDetalles.quotation_id} - Creada el {formatDate(cotizacionDetalles.creation_date)}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Vendedor: {cotizacionDetalles.User?.name}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Valor Total</p>
-                  <p className="text-2xl font-bold text-gray-800">
-                    {formatNumber(cotizacionDetalles.total_value)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Información del Cliente */}
-              <div className="rounded-lg border border-gray-200 bg-white p-6">
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">Información del Cliente</h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <p className="text-sm text-gray-600">NIC</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.nic}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Nombre</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Tipo de Cliente</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.client_type}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Ubicación</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.city}, {cotizacionDetalles.Client?.department}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Dirección</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.address}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Tipo de Red</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.network_type}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Consumo Mensual</p>
-                    <p className="font-medium">{cotizacionDetalles.Client?.monthly_consumption_kwh} kWh</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Tarifa Energía</p>
-                    <p className="font-medium">${cotizacionDetalles.Client?.energy_rate}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Información del Proyecto */}
-              <div className="rounded-lg border border-gray-200 bg-white p-6">
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">Información del Proyecto</h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <p className="text-sm text-gray-600">Tipo de Sistema</p>
-                    <p className="font-medium">{cotizacionDetalles.system_type}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Potencia (kWp)</p>
-                    <p className="font-medium">
-                      {Number(cotizacionDetalles.power_kwp) % 1 === 0 
-                        ? Math.round(cotizacionDetalles.power_kwp)
-                        : Number(cotizacionDetalles.power_kwp).toFixed(1).replace('.', ',')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Número de Paneles</p>
-                    <p className="font-medium">{cotizacionDetalles.panel_count}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Requiere Financiamiento</p>
-                    <p className="font-medium">{cotizacionDetalles.requires_financing ? 'Sí' : 'No'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Productos */}
-              <div className="rounded-lg border border-gray-200 bg-white p-6">
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">Información de Equipos</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Tipo</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Marca</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Modelo</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Potencia</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Cantidad</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Precio Unitario</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Ficha Técnica</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cotizacionDetalles.products.map((producto) => (
-                        <tr key={producto.id} className="border-b border-gray-200">
-                          <td className="px-4 py-2 text-sm">
-                            {producto.type === 'Monocristalino' ? 'Panel' : 
-                             producto.type === 'inverter' ? 'Inversor' : 
-                             producto.type === 'bateria' ? 'Batería' : producto.type}
-                          </td>
-                          <td className="px-4 py-2 text-sm">{producto.brand}</td>
-                          <td className="px-4 py-2 text-sm">{producto.model}</td>
-                          <td className="px-4 py-2 text-sm">
-                            {Number(producto.power) % 1 === 0 
-                              ? Math.round(producto.power)
-                              : Number(producto.power).toFixed(1).replace('.', ',')} {producto.type === 'inverter' ? 'kW' : 'W'}
-                          </td>
-                          <td className="px-4 py-2 text-sm">
-                            {Number(producto.quantity) % 1 === 0 
-                              ? Math.round(producto.quantity)
-                              : Number(producto.quantity).toFixed(1).replace('.', ',')}
-                          </td>
-                          <td className="px-4 py-2 text-sm">{formatNumber(producto.unit_price)}</td>
-                          <td className="px-4 py-2 text-sm">
-                            {producto.technical_sheet_url ? (
-                              <a
-                                href={`http://localhost:3000${producto.technical_sheet_url}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  window.open(`http://localhost:3000${producto.technical_sheet_url}`, '_blank');
-                                }}
-                              >
-                                Ver ficha
-                              </a>
-                            ) : (
-                              <span className="text-gray-400">No disponible</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Items Adicionales */}
-              <div className="rounded-lg border border-gray-200 bg-white p-6">
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">Items Adicionales</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Descripción</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Tipo</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Cantidad</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Unidad</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Precio Unitario</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Valor Parcial</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Ganancia</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-600">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cotizacionDetalles.quotation_items.map((item) => (
-                        <tr key={item.quotation_item_id} className="border-b border-gray-200">
-                          <td className="px-4 py-2 text-sm">{item.description}</td>
-                          <td className="px-4 py-2 text-sm">{item.item_type}</td>
-                          <td className="px-4 py-2 text-sm">{item.quantity}</td>
-                          <td className="px-4 py-2 text-sm">{item.unit}</td>
-                          <td className="px-4 py-2 text-sm">{formatNumber(item.unit_price)}</td>
-                          <td className="px-4 py-2 text-sm">{formatNumber(item.partial_value)}</td>
-                          <td className="px-4 py-2 text-sm">{formatNumber(item.profit)}</td>
-                          <td className="px-4 py-2 text-sm">{formatNumber(item.total_value)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Resumen de Costos */}
-              <div className="rounded-lg border border-gray-200 bg-white p-6">
-                <h2 className="mb-4 text-xl font-semibold text-gray-800">Resumen de Costos</h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  <div>
-                    <p className="text-sm text-gray-600">Subtotal</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.subtotal)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Utilidad</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.profit)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">IVA Utilidad</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.profit_iva)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Gestión Comercial</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.commercial_management)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Administración</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.administration)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Imprevistos</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.contingency)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Retenciones</p>
-                    <p className="font-medium">{formatNumber(cotizacionDetalles.withholdings)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Total</p>
-                    <p className="font-bold text-lg">{formatNumber(cotizacionDetalles.total_value)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center text-gray-500">No se encontraron detalles de la cotización.</div>
-          )}
-        </div>
-      </Modal>
     </div>
   );
 };
 
-export default Cotizaciones; 
+export default Cotizaciones;

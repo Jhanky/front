@@ -1,16 +1,147 @@
 import React from "react";
-import { MdBarChart, MdReceipt, MdAttachMoney, MdPending, MdCheckCircle, MdCancel, MdTrendingUp, MdOutlineCalendarToday, MdVisibility, MdFolder } from "react-icons/md";
+import { MdBarChart, MdReceipt, MdAttachMoney, MdPending, MdCheckCircle, MdCancel, MdTrendingUp, MdTrendingDown, MdOutlineCalendarToday, MdVisibility, MdFolder, MdAccountBalance, MdWarning, MdNotifications } from "react-icons/md";
 import ProjectInvoicesModal from "components/modal/ProjectInvoicesModal";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import "../../../../assets/css/Calendar.css";
 
 import { proyectosService } from "services/proyectosService";
+import { gestionFinancieraService } from "services/gestionFinancieraService";
+import { financialDashboardService } from "services/financialDashboardService";
+import { facturasService } from "services/facturasService";
+import { getApiUrl } from "config/api";
 
 import Widget from "components/widget/Widget";
 import Card from "components/card";
 import LineChart from "components/charts/LineChart";
 import BarChart from "components/charts/BarChart";
 import PieChart from "components/charts/PieChart";
+
+// Datos de prueba para cuando la API no esté funcionando
+const MOCK_FACTURAS = [
+  {
+    id: 1,
+    number: "FAC-2024-001",
+    date: "2024-01-15",
+    amount: 2500000,
+    status: "Pagado",
+    payment_method: "Transferencia",
+    description: "Compra de paneles solares para proyecto residencial",
+    supplier: "SolarTech Colombia",
+    project: "Instalación Residencial Medellín"
+  },
+  {
+    id: 2,
+    number: "FAC-2024-002",
+    date: "2024-01-20",
+    amount: 1800000,
+    status: "Pagado",
+    payment_method: "Efectivo",
+    description: "Inversores para proyecto comercial",
+    supplier: "InverterPro",
+    project: "Centro Comercial Bogotá"
+  },
+  {
+    id: 3,
+    number: "FAC-2024-003",
+    date: "2024-02-05",
+    amount: 3200000,
+    status: "Pagado",
+    payment_method: "Cheque",
+    description: "Baterías de respaldo para proyecto industrial",
+    supplier: "BatteryMax",
+    project: "Planta Industrial Cali"
+  },
+  {
+    id: 4,
+    number: "FAC-2024-004",
+    date: "2024-02-12",
+    amount: 950000,
+    status: "Cancelado",
+    payment_method: "Transferencia",
+    description: "Cables y conectores para instalación",
+    supplier: "CablePro",
+    project: "Instalación Residencial Medellín"
+  },
+  {
+    id: 5,
+    number: "FAC-2024-005",
+    date: "2024-02-18",
+    amount: 4100000,
+    status: "Pendiente",
+    payment_method: "Transferencia",
+    description: "Sistema de monitoreo y control",
+    supplier: "MonitorTech",
+    project: "Centro Comercial Bogotá"
+  },
+  {
+    id: 6,
+    number: "FAC-2024-006",
+    date: "2024-03-01",
+    amount: 2800000,
+    status: "Pagado",
+    payment_method: "Efectivo",
+    description: "Herramientas y equipos de instalación",
+    supplier: "ToolMaster",
+    project: "Planta Industrial Cali"
+  },
+  {
+    id: 7,
+    number: "FAC-2024-007",
+    date: "2024-03-08",
+    amount: 1650000,
+    status: "Pendiente",
+    payment_method: "Transferencia",
+    description: "Materiales de soporte y estructura",
+    supplier: "StructurePro",
+    project: "Instalación Residencial Medellín"
+  },
+  {
+    id: 8,
+    number: "FAC-2024-008",
+    date: "2024-03-15",
+    amount: 5200000,
+    status: "Pagado",
+    payment_method: "Cheque",
+    description: "Sistema completo de energía solar",
+    supplier: "SolarSystem",
+    project: "Centro Comercial Bogotá"
+  }
+];
+
+// Datos de prueba para gestión financiera
+const MOCK_RESUMEN_CAJA = {
+  caja_disponible: 15000000,
+  ingresos_mes: 8500000,
+  egresos_mes: 3200000,
+  saldo_proyectado: 20300000
+};
+
+const MOCK_INGRESOS = [
+  { id: 1, fecha: "2024-03-01", monto: 2500000, descripcion: "Pago factura FAC-2024-001", tipo: "ingreso" },
+  { id: 2, fecha: "2024-03-05", monto: 1800000, descripcion: "Pago factura FAC-2024-002", tipo: "ingreso" },
+  { id: 3, fecha: "2024-03-10", monto: 3200000, descripcion: "Pago factura FAC-2024-003", tipo: "ingreso" },
+  { id: 4, fecha: "2024-03-15", monto: 1000000, descripcion: "Pago factura FAC-2024-008", tipo: "ingreso" }
+];
+
+const MOCK_EGRESOS = [
+  { id: 1, fecha: "2024-03-02", monto: 800000, descripcion: "Compra materiales", tipo: "egreso" },
+  { id: 2, fecha: "2024-03-08", monto: 1200000, descripcion: "Pago proveedores", tipo: "egreso" },
+  { id: 3, fecha: "2024-03-12", monto: 600000, descripcion: "Gastos operativos", tipo: "egreso" },
+  { id: 4, fecha: "2024-03-18", monto: 600000, descripcion: "Servicios públicos", tipo: "egreso" }
+];
+
+const MOCK_FACTURAS_PROVEEDORES = [
+  { id: 1, numero: "PROV-001", monto: 2500000, fecha_vencimiento: "2024-03-25", estado: "pendiente" },
+  { id: 2, numero: "PROV-002", monto: 1800000, fecha_vencimiento: "2024-03-30", estado: "pendiente" },
+  { id: 3, numero: "PROV-003", monto: 3200000, fecha_vencimiento: "2024-04-05", estado: "pendiente" }
+];
+
+const MOCK_ALERTAS_FINANCIERAS = [
+  { id: 1, tipo: "vencimiento", mensaje: "Factura PROV-001 vence en 3 días", prioridad: "alta" },
+  { id: 2, tipo: "saldo", mensaje: "Saldo bajo en cuenta principal", prioridad: "media" },
+  { id: 3, tipo: "gasto", mensaje: "Gastos operativos superan presupuesto", prioridad: "baja" }
+];
 
 const Dashboard = () => {
   // Estado para el modal
@@ -24,199 +155,29 @@ const Dashboard = () => {
   const [errorFacturas, setErrorFacturas] = React.useState(null);
   const [facturas, setFacturas] = React.useState([]);
 
-  // 1. Array base de facturas (simulación de datos desde 2023 hasta julio 2025)
-  // const facturas = [
-  //   // 2023 - Enero (5 facturas)
-  //   { id: 1, numero: "FAC-2023-001", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2023", monto: 8000000, estado: "Pagado", fecha: "2023-01-05", metodo_pago: "Transferencia" },
-  //   { id: 2, numero: "FAC-2023-002", proveedor: "Paneles Plus", proyecto: "Comercial 2023", monto: 7500000, estado: "Pendiente", fecha: "2023-01-10", metodo_pago: "Efectivo" },
-  //   { id: 3, numero: "FAC-2023-003", proveedor: "Solar Tech", proyecto: "Industrial 2023", monto: 9000000, estado: "Cancelado", fecha: "2023-01-15", metodo_pago: "Credito" },
-  //   { id: 4, numero: "FAC-2023-004", proveedor: "Green Energy", proyecto: "Residencial 2023", monto: 8200000, estado: "Pagado", fecha: "2023-01-20", metodo_pago: "Transferencia" },
-  //   { id: 5, numero: "FAC-2023-005", proveedor: "Eco Solutions", proyecto: "Comercial 2023", monto: 7800000, estado: "Pendiente", fecha: "2023-01-25", metodo_pago: "Efectivo" },
-  //   { id: 6, numero: "FAC-2023-006", proveedor: "Solar Tech", proyecto: "Industrial 2023", monto: 9100000, estado: "Pagado", fecha: "2023-02-02", metodo_pago: "Transferencia" },
-  //   { id: 7, numero: "FAC-2023-007", proveedor: "Green Energy", proyecto: "Residencial 2023", monto: 8300000, estado: "Pendiente", fecha: "2023-02-06", metodo_pago: "Efectivo" },
-  //   { id: 8, numero: "FAC-2023-008", proveedor: "Paneles Plus", proyecto: "Comercial 2023", monto: 7700000, estado: "Cancelado", fecha: "2023-02-11", metodo_pago: "Credito" },
-  //   { id: 9, numero: "FAC-2023-009", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2023", monto: 8100000, estado: "Pagado", fecha: "2023-02-16", metodo_pago: "Transferencia" },
-  //   { id: 10, numero: "FAC-2023-010", proveedor: "Eco Solutions", proyecto: "Comercial 2023", monto: 7900000, estado: "Pendiente", fecha: "2023-02-20", metodo_pago: "Efectivo" },
-  //   { id: 11, numero: "FAC-2023-011", proveedor: "Solar Tech", proyecto: "Industrial 2023", monto: 9200000, estado: "Pagado", fecha: "2023-02-24", metodo_pago: "Transferencia" },
-  //   { id: 12, numero: "FAC-2023-012", proveedor: "Green Energy", proyecto: "Residencial 2023", monto: 8400000, estado: "Pendiente", fecha: "2023-02-28", metodo_pago: "Efectivo" },
+  // Estados para gestión financiera
+  const [loadingFinanciero, setLoadingFinanciero] = React.useState(true);
+  const [resumenCaja, setResumenCaja] = React.useState(null);
+  const [ingresos, setIngresos] = React.useState([]);
+  const [egresos, setEgresos] = React.useState([]);
+  const [facturasProveedores, setFacturasProveedores] = React.useState([]);
+  const [alertasFinancieras, setAlertasFinancieras] = React.useState([]);
+  const [usingMockData, setUsingMockData] = React.useState(false);
 
-  //   // 2023 - Marzo (2 facturas)
-  //   { id: 13, numero: "FAC-2023-013", proveedor: "Paneles Plus", proyecto: "Comercial 2023", monto: 7600000, estado: "Cancelado", fecha: "2023-03-05", metodo_pago: "Credito" },
-  //   { id: 14, numero: "FAC-2023-014", proveedor: "Solar Tech", proyecto: "Industrial 2023", monto: 9300000, estado: "Pagado", fecha: "2023-03-10", metodo_pago: "Transferencia" },
+  // Estados para dashboard financiero
+  const [loadingDashboardFinanciero, setLoadingDashboardFinanciero] = React.useState(true);
+  const [resumenFinanciero, setResumenFinanciero] = React.useState(null);
+  const [facturasProximasVencer, setFacturasProximasVencer] = React.useState(null);
+  const [proyectosActivos, setProyectosActivos] = React.useState(null);
+  const [showFacturasProximasVencer, setShowFacturasProximasVencer] = React.useState(false);
+  const [diasFiltro, setDiasFiltro] = React.useState(30);
 
-  //   // 2023 - Abril (4 facturas)
-  //   { id: 15, numero: "FAC-2023-015", proveedor: "Green Energy", proyecto: "Residencial 2023", monto: 8500000, estado: "Pendiente", fecha: "2023-04-03", metodo_pago: "Efectivo" },
-  //   { id: 16, numero: "FAC-2023-016", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2023", monto: 8250000, estado: "Pagado", fecha: "2023-04-08", metodo_pago: "Transferencia" },
-  //   { id: 17, numero: "FAC-2023-017", proveedor: "Eco Solutions", proyecto: "Comercial 2023", monto: 7950000, estado: "Pendiente", fecha: "2023-04-14", metodo_pago: "Efectivo" },
-  //   { id: 18, numero: "FAC-2023-018", proveedor: "Paneles Plus", proyecto: "Comercial 2023", monto: 7750000, estado: "Cancelado", fecha: "2023-04-20", metodo_pago: "Credito" },
-
-  //   // 2023 - Mayo (6 facturas)
-  //   { id: 19, numero: "FAC-2023-019", proveedor: "Solar Tech", proyecto: "Industrial 2023", monto: 9400000, estado: "Pagado", fecha: "2023-05-01", metodo_pago: "Transferencia" },
-  //   { id: 20, numero: "FAC-2023-020", proveedor: "Green Energy", proyecto: "Residencial 2023", monto: 8600000, estado: "Pendiente", fecha: "2023-05-06", metodo_pago: "Efectivo" },
-  //   { id: 21, numero: "FAC-2023-021", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2023", monto: 8350000, estado: "Pagado", fecha: "2023-05-11", metodo_pago: "Transferencia" },
-  //   { id: 22, numero: "FAC-2023-022", proveedor: "Eco Solutions", proyecto: "Comercial 2023", monto: 8000000, estado: "Pendiente", fecha: "2023-05-16", metodo_pago: "Efectivo" },
-  //   { id: 23, numero: "FAC-2023-023", proveedor: "Paneles Plus", proyecto: "Comercial 2023", monto: 7850000, estado: "Cancelado", fecha: "2023-05-22", metodo_pago: "Credito" },
-  //   { id: 24, numero: "FAC-2023-024", proveedor: "Solar Tech", proyecto: "Industrial 2023", monto: 9500000, estado: "Pagado", fecha: "2023-05-28", metodo_pago: "Transferencia" },
-
-  //   // 2023 - Junio (3 facturas)
-  //   { id: 25, numero: "FAC-2023-025", proveedor: "Green Energy", proyecto: "Residencial 2023", monto: 8700000, estado: "Pendiente", fecha: "2023-06-04", metodo_pago: "Efectivo" },
-  //   { id: 26, numero: "FAC-2023-026", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2023", monto: 8450000, estado: "Pagado", fecha: "2023-06-10", metodo_pago: "Transferencia" },
-  //   { id: 27, numero: "FAC-2023-027", proveedor: "Eco Solutions", proyecto: "Comercial 2023", monto: 8100000, estado: "Pendiente", fecha: "2023-06-18", metodo_pago: "Efectivo" },
-
-  //   // 2023 - Julio (5 facturas)
-  //   { id: 28, numero: "FAC-2023-028", proveedor: "Solar Tech", proyecto: "Industrial 2023", monto: 9600000, estado: "Pagado", fecha: "2023-07-02", metodo_pago: "Transferencia" },
-  //   { id: 29, numero: "FAC-2023-029", proveedor: "Green Energy", proyecto: "Residencial 2023", monto: 8800000, estado: "Pendiente", fecha: "2023-07-07", metodo_pago: "Efectivo" },
-  //   { id: 30, numero: "FAC-2023-030", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2023", monto: 8550000, estado: "Pagado", fecha: "2023-07-12", metodo_pago: "Transferencia" },
-  //   { id: 31, numero: "FAC-2023-031", proveedor: "Eco Solutions", proyecto: "Comercial 2023", monto: 8200000, estado: "Pendiente", fecha: "2023-07-18", metodo_pago: "Efectivo" },
-  //   { id: 32, numero: "FAC-2023-032", proveedor: "Paneles Plus", proyecto: "Comercial 2023", monto: 7950000, estado: "Cancelado", fecha: "2023-07-25", metodo_pago: "Credito" },
-
-  //   // 2023 - Agosto (7 facturas)
-  //   { id: 33, numero: "FAC-2023-033", proveedor: "Solar Tech", proyecto: "Industrial 2023", monto: 9700000, estado: "Pagado", fecha: "2023-08-01", metodo_pago: "Transferencia" },
-  //   { id: 34, numero: "FAC-2023-034", proveedor: "Green Energy", proyecto: "Residencial 2023", monto: 8900000, estado: "Pendiente", fecha: "2023-08-06", metodo_pago: "Efectivo" },
-  //   { id: 35, numero: "FAC-2023-035", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2023", monto: 8650000, estado: "Pagado", fecha: "2023-08-11", metodo_pago: "Transferencia" },
-  //   { id: 36, numero: "FAC-2023-036", proveedor: "Eco Solutions", proyecto: "Comercial 2023", monto: 8300000, estado: "Pendiente", fecha: "2023-08-16", metodo_pago: "Efectivo" },
-  //   { id: 37, numero: "FAC-2023-037", proveedor: "Paneles Plus", proyecto: "Comercial 2023", monto: 8050000, estado: "Cancelado", fecha: "2023-08-22", metodo_pago: "Credito" },
-  //   { id: 38, numero: "FAC-2023-038", proveedor: "Solar Tech", proyecto: "Industrial 2023", monto: 9800000, estado: "Pagado", fecha: "2023-08-26", metodo_pago: "Transferencia" },
-  //   { id: 39, numero: "FAC-2023-039", proveedor: "Green Energy", proyecto: "Residencial 2023", monto: 9000000, estado: "Pendiente", fecha: "2023-08-30", metodo_pago: "Efectivo" },
-
-  //   // 2023 - Septiembre (2 facturas)
-  //   { id: 40, numero: "FAC-2023-040", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2023", monto: 8750000, estado: "Pagado", fecha: "2023-09-05", metodo_pago: "Transferencia" },
-  //   { id: 41, numero: "FAC-2023-041", proveedor: "Eco Solutions", proyecto: "Comercial 2023", monto: 8400000, estado: "Pendiente", fecha: "2023-09-10", metodo_pago: "Efectivo" },
-
-  //   // 2023 - Octubre (4 facturas)
-  //   { id: 42, numero: "FAC-2023-042", proveedor: "Solar Tech", proyecto: "Industrial 2023", monto: 9900000, estado: "Pagado", fecha: "2023-10-02", metodo_pago: "Transferencia" },
-  //   { id: 43, numero: "FAC-2023-043", proveedor: "Green Energy", proyecto: "Residencial 2023", monto: 9100000, estado: "Pendiente", fecha: "2023-10-08", metodo_pago: "Efectivo" },
-  //   { id: 44, numero: "FAC-2023-044", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2023", monto: 8850000, estado: "Pagado", fecha: "2023-10-14", metodo_pago: "Transferencia" },
-  //   { id: 45, numero: "FAC-2023-045", proveedor: "Eco Solutions", proyecto: "Comercial 2023", monto: 8500000, estado: "Pendiente", fecha: "2023-10-20", metodo_pago: "Efectivo" },
-
-  //   // 2023 - Noviembre (6 facturas)
-  //   { id: 46, numero: "FAC-2023-046", proveedor: "Solar Tech", proyecto: "Industrial 2023", monto: 10000000, estado: "Pagado", fecha: "2023-11-01", metodo_pago: "Transferencia" },
-  //   { id: 47, numero: "FAC-2023-047", proveedor: "Green Energy", proyecto: "Residencial 2023", monto: 9200000, estado: "Pendiente", fecha: "2023-11-06", metodo_pago: "Efectivo" },
-  //   { id: 48, numero: "FAC-2023-048", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2023", monto: 8950000, estado: "Pagado", fecha: "2023-11-12", metodo_pago: "Transferencia" },
-  //   { id: 49, numero: "FAC-2023-049", proveedor: "Eco Solutions", proyecto: "Comercial 2023", monto: 8600000, estado: "Pendiente", fecha: "2023-11-18", metodo_pago: "Efectivo" },
-  //   { id: 50, numero: "FAC-2023-050", proveedor: "Paneles Plus", proyecto: "Comercial 2023", monto: 8250000, estado: "Cancelado", fecha: "2023-11-24", metodo_pago: "Credito" },
-  //   { id: 51, numero: "FAC-2023-051", proveedor: "Solar Tech", proyecto: "Industrial 2023", monto: 10100000, estado: "Pagado", fecha: "2023-11-30", metodo_pago: "Transferencia" },
-
-  //   // 2023 - Diciembre (3 facturas)
-  //   { id: 52, numero: "FAC-2023-052", proveedor: "Green Energy", proyecto: "Residencial 2023", monto: 9300000, estado: "Pendiente", fecha: "2023-12-05", metodo_pago: "Efectivo" },
-  //   { id: 53, numero: "FAC-2023-053", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2023", monto: 9050000, estado: "Pagado", fecha: "2023-12-10", metodo_pago: "Transferencia" },
-  //   { id: 54, numero: "FAC-2023-054", proveedor: "Eco Solutions", proyecto: "Comercial 2023", monto: 8700000, estado: "Pendiente", fecha: "2023-12-18", metodo_pago: "Efectivo" },
-  //   // 2024 - Enero (4 facturas)
-  //   { id: 55, numero: "FAC-2024-001", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2024", monto: 13000000, estado: "Pagado", fecha: "2024-01-10", metodo_pago: "Transferencia" },
-  //   { id: 56, numero: "FAC-2024-002", proveedor: "Paneles Plus", proyecto: "Comercial 2024", monto: 14000000, estado: "Pendiente", fecha: "2024-01-15", metodo_pago: "Efectivo" },
-  //   { id: 57, numero: "FAC-2024-003", proveedor: "Solar Tech", proyecto: "Industrial 2024", monto: 15000000, estado: "Cancelado", fecha: "2024-01-20", metodo_pago: "Tarjeta" },
-  //   { id: 58, numero: "FAC-2024-004", proveedor: "Green Energy", proyecto: "Residencial 2024", monto: 16000000, estado: "Pagado", fecha: "2024-01-25", metodo_pago: "Transferencia" },
-
-  //   // 2024 - Febrero (6 facturas)
-  //   { id: 59, numero: "FAC-2024-005", proveedor: "Eco Solutions", proyecto: "Comercial 2024", monto: 17000000, estado: "Pendiente", fecha: "2024-02-05", metodo_pago: "Efectivo" },
-  //   { id: 60, numero: "FAC-2024-006", proveedor: "Solar Tech", proyecto: "Industrial 2024", monto: 18000000, estado: "Pagado", fecha: "2024-02-10", metodo_pago: "Transferencia" },
-  //   { id: 61, numero: "FAC-2024-007", proveedor: "Green Energy", proyecto: "Residencial 2024", monto: 19000000, estado: "Pendiente", fecha: "2024-02-15", metodo_pago: "Efectivo" },
-  //   { id: 62, numero: "FAC-2024-008", proveedor: "Paneles Plus", proyecto: "Comercial 2024", monto: 20000000, estado: "Cancelado", fecha: "2024-02-20", metodo_pago: "Tarjeta" },
-  //   { id: 63, numero: "FAC-2024-009", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2024", monto: 21000000, estado: "Pagado", fecha: "2024-02-25", metodo_pago: "Transferencia" },
-  //   { id: 64, numero: "FAC-2024-010", proveedor: "Eco Solutions", proyecto: "Comercial 2024", monto: 22000000, estado: "Pendiente", fecha: "2024-02-28", metodo_pago: "Efectivo" },
-
-  //   // 2024 - Marzo (5 facturas)
-  //   { id: 65, numero: "FAC-2024-011", proveedor: "Solar Tech", proyecto: "Industrial 2024", monto: 23000000, estado: "Pagado", fecha: "2024-03-05", metodo_pago: "Transferencia" },
-  //   { id: 66, numero: "FAC-2024-012", proveedor: "Green Energy", proyecto: "Residencial 2024", monto: 24000000, estado: "Pendiente", fecha: "2024-03-10", metodo_pago: "Efectivo" },
-  //   { id: 67, numero: "FAC-2024-013", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2024", monto: 25000000, estado: "Pagado", fecha: "2024-03-15", metodo_pago: "Transferencia" },
-  //   { id: 68, numero: "FAC-2024-014", proveedor: "Eco Solutions", proyecto: "Comercial 2024", monto: 26000000, estado: "Pendiente", fecha: "2024-03-20", metodo_pago: "Efectivo" },
-  //   { id: 69, numero: "FAC-2024-015", proveedor: "Paneles Plus", proyecto: "Comercial 2024", monto: 27000000, estado: "Cancelado", fecha: "2024-03-25", metodo_pago: "Tarjeta" },
-
-  //   // 2024 - Abril (3 facturas)
-  //   { id: 70, numero: "FAC-2024-016", proveedor: "Solar Tech", proyecto: "Industrial 2024", monto: 28000000, estado: "Pagado", fecha: "2024-04-05", metodo_pago: "Transferencia" },
-  //   { id: 71, numero: "FAC-2024-017", proveedor: "Green Energy", proyecto: "Residencial 2024", monto: 29000000, estado: "Pendiente", fecha: "2024-04-10", metodo_pago: "Efectivo" },
-  //   { id: 72, numero: "FAC-2024-018", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2024", monto: 30000000, estado: "Pagado", fecha: "2024-04-15", metodo_pago: "Transferencia" },
-
-  //   // 2024 - Mayo (7 facturas)
-  //   { id: 73, numero: "FAC-2024-019", proveedor: "Eco Solutions", proyecto: "Comercial 2024", monto: 31000000, estado: "Pendiente", fecha: "2024-05-05", metodo_pago: "Efectivo" },
-  //   { id: 74, numero: "FAC-2024-020", proveedor: "Solar Tech", proyecto: "Industrial 2024", monto: 32000000, estado: "Pagado", fecha: "2024-05-10", metodo_pago: "Transferencia" },
-  //   { id: 75, numero: "FAC-2024-021", proveedor: "Green Energy", proyecto: "Residencial 2024", monto: 33000000, estado: "Pendiente", fecha: "2024-05-15", metodo_pago: "Efectivo" },
-  //   { id: 76, numero: "FAC-2024-022", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2024", monto: 34000000, estado: "Pagado", fecha: "2024-05-20", metodo_pago: "Transferencia" },
-  //   { id: 77, numero: "FAC-2024-023", proveedor: "Eco Solutions", proyecto: "Comercial 2024", monto: 35000000, estado: "Pendiente", fecha: "2024-05-25", metodo_pago: "Efectivo" },
-  //   { id: 78, numero: "FAC-2024-024", proveedor: "Paneles Plus", proyecto: "Comercial 2024", monto: 36000000, estado: "Cancelado", fecha: "2024-05-28", metodo_pago: "Tarjeta" },
-  //   { id: 79, numero: "FAC-2024-025", proveedor: "Solar Tech", proyecto: "Industrial 2024", monto: 37000000, estado: "Pagado", fecha: "2024-05-30", metodo_pago: "Transferencia" },
-
-  //   // 2024 - Junio (2 facturas)
-  //   { id: 80, numero: "FAC-2024-026", proveedor: "Green Energy", proyecto: "Residencial 2024", monto: 38000000, estado: "Pendiente", fecha: "2024-06-10", metodo_pago: "Efectivo" },
-  //   { id: 81, numero: "FAC-2024-027", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2024", monto: 39000000, estado: "Pagado", fecha: "2024-06-15", metodo_pago: "Transferencia" },
-
-  //   // 2024 - Julio (4 facturas)
-  //   { id: 82, numero: "FAC-2024-028", proveedor: "Eco Solutions", proyecto: "Comercial 2024", monto: 40000000, estado: "Pendiente", fecha: "2024-07-05", metodo_pago: "Efectivo" },
-  //   { id: 83, numero: "FAC-2024-029", proveedor: "Solar Tech", proyecto: "Industrial 2024", monto: 41000000, estado: "Pagado", fecha: "2024-07-10", metodo_pago: "Transferencia" },
-  //   { id: 84, numero: "FAC-2024-030", proveedor: "Green Energy", proyecto: "Residencial 2024", monto: 42000000, estado: "Pendiente", fecha: "2024-07-15", metodo_pago: "Efectivo" },
-  //   { id: 85, numero: "FAC-2024-031", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2024", monto: 43000000, estado: "Pagado", fecha: "2024-07-20", metodo_pago: "Transferencia" },
-
-  //   // 2024 - Agosto (6 facturas)
-  //   { id: 86, numero: "FAC-2024-032", proveedor: "Eco Solutions", proyecto: "Comercial 2024", monto: 44000000, estado: "Pendiente", fecha: "2024-08-05", metodo_pago: "Efectivo" },
-  //   { id: 87, numero: "FAC-2024-033", proveedor: "Solar Tech", proyecto: "Industrial 2024", monto: 45000000, estado: "Pagado", fecha: "2024-08-10", metodo_pago: "Transferencia" },
-  //   { id: 88, numero: "FAC-2024-034", proveedor: "Green Energy", proyecto: "Residencial 2024", monto: 46000000, estado: "Pendiente", fecha: "2024-08-15", metodo_pago: "Efectivo" },
-  //   { id: 89, numero: "FAC-2024-035", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2024", monto: 47000000, estado: "Pagado", fecha: "2024-08-20", metodo_pago: "Transferencia" },
-  //   { id: 90, numero: "FAC-2024-036", proveedor: "Eco Solutions", proyecto: "Comercial 2024", monto: 48000000, estado: "Pendiente", fecha: "2024-08-25", metodo_pago: "Efectivo" },
-  //   { id: 91, numero: "FAC-2024-037", proveedor: "Paneles Plus", proyecto: "Comercial 2024", monto: 49000000, estado: "Cancelado", fecha: "2024-08-30", metodo_pago: "Tarjeta" },
-
-  //   // 2024 - Septiembre (5 facturas)
-  //   { id: 92, numero: "FAC-2024-038", proveedor: "Solar Tech", proyecto: "Industrial 2024", monto: 50000000, estado: "Pagado", fecha: "2024-09-05", metodo_pago: "Transferencia" },
-  //   { id: 93, numero: "FAC-2024-039", proveedor: "Green Energy", proyecto: "Residencial 2024", monto: 51000000, estado: "Pendiente", fecha: "2024-09-10", metodo_pago: "Efectivo" },
-  //   { id: 94, numero: "FAC-2024-040", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2024", monto: 52000000, estado: "Pagado", fecha: "2024-09-15", metodo_pago: "Transferencia" },
-  //   { id: 95, numero: "FAC-2024-041", proveedor: "Eco Solutions", proyecto: "Comercial 2024", monto: 53000000, estado: "Pendiente", fecha: "2024-09-20", metodo_pago: "Efectivo" },
-  //   { id: 96, numero: "FAC-2024-042", proveedor: "Paneles Plus", proyecto: "Comercial 2024", monto: 54000000, estado: "Cancelado", fecha: "2024-09-25", metodo_pago: "Tarjeta" },
-
-  //   // 2024 - Octubre (3 facturas)
-  //   { id: 97, numero: "FAC-2024-043", proveedor: "Solar Tech", proyecto: "Industrial 2024", monto: 55000000, estado: "Pagado", fecha: "2024-10-05", metodo_pago: "Transferencia" },
-  //   { id: 98, numero: "FAC-2024-044", proveedor: "Green Energy", proyecto: "Residencial 2024", monto: 56000000, estado: "Pendiente", fecha: "2024-10-10", metodo_pago: "Efectivo" },
-  //   { id: 99, numero: "FAC-2024-045", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2024", monto: 57000000, estado: "Pagado", fecha: "2024-10-15", metodo_pago: "Transferencia" },
-
-  //   // 2024 - Noviembre (7 facturas)
-  //   { id: 100, numero: "FAC-2024-046", proveedor: "Eco Solutions", proyecto: "Comercial 2024", monto: 58000000, estado: "Pendiente", fecha: "2024-11-05", metodo_pago: "Efectivo" },
-  //   { id: 101, numero: "FAC-2024-047", proveedor: "Solar Tech", proyecto: "Industrial 2024", monto: 59000000, estado: "Pagado", fecha: "2024-11-10", metodo_pago: "Transferencia" },
-  //   { id: 102, numero: "FAC-2024-048", proveedor: "Green Energy", proyecto: "Residencial 2024", monto: 60000000, estado: "Pendiente", fecha: "2024-11-15", metodo_pago: "Efectivo" },
-  //   { id: 103, numero: "FAC-2024-049", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2024", monto: 61000000, estado: "Pagado", fecha: "2024-11-20", metodo_pago: "Transferencia" },
-  //   { id: 104, numero: "FAC-2024-050", proveedor: "Eco Solutions", proyecto: "Comercial 2024", monto: 62000000, estado: "Pendiente", fecha: "2024-11-25", metodo_pago: "Efectivo" },
-  //   { id: 105, numero: "FAC-2024-051", proveedor: "Paneles Plus", proyecto: "Comercial 2024", monto: 63000000, estado: "Cancelado", fecha: "2024-11-28", metodo_pago: "Tarjeta" },
-  //   { id: 106, numero: "FAC-2024-052", proveedor: "Solar Tech", proyecto: "Industrial 2024", monto: 64000000, estado: "Pagado", fecha: "2024-11-30", metodo_pago: "Transferencia" },
-
-  //   // 2024 - Diciembre (2 facturas)
-  //   { id: 107, numero: "FAC-2024-053", proveedor: "Green Energy", proyecto: "Residencial 2024", monto: 65000000, estado: "Pendiente", fecha: "2024-12-10", metodo_pago: "Efectivo" },
-  //   { id: 108, numero: "FAC-2024-054", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2024", monto: 66000000, estado: "Pagado", fecha: "2024-12-15", metodo_pago: "Transferencia" },
-  //   // 2025 - Enero (5 facturas)
-  //   { id: 109, numero: "FAC-2025-001", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2025", monto: 67000000, estado: "Pagado", fecha: "2025-01-10", metodo_pago: "Transferencia" },
-  //   { id: 110, numero: "FAC-2025-002", proveedor: "Paneles Plus", proyecto: "Comercial 2025", monto: 68000000, estado: "Pendiente", fecha: "2025-01-15", metodo_pago: "Efectivo" },
-  //   { id: 111, numero: "FAC-2025-003", proveedor: "Solar Tech", proyecto: "Industrial 2025", monto: 69000000, estado: "Cancelado", fecha: "2025-01-20", metodo_pago: "Tarjeta" },
-  //   { id: 112, numero: "FAC-2025-004", proveedor: "Green Energy", proyecto: "Residencial 2025", monto: 70000000, estado: "Pagado", fecha: "2025-01-25", metodo_pago: "Transferencia" },
-  //   { id: 113, numero: "FAC-2025-005", proveedor: "Eco Solutions", proyecto: "Comercial 2025", monto: 71000000, estado: "Pendiente", fecha: "2025-01-30", metodo_pago: "Efectivo" },
-
-  //   // 2025 - Febrero (4 facturas)
-  //   { id: 114, numero: "FAC-2025-006", proveedor: "Solar Tech", proyecto: "Industrial 2025", monto: 72000000, estado: "Pagado", fecha: "2025-02-05", metodo_pago: "Transferencia" },
-  //   { id: 115, numero: "FAC-2025-007", proveedor: "Green Energy", proyecto: "Residencial 2025", monto: 73000000, estado: "Pendiente", fecha: "2025-02-10", metodo_pago: "Efectivo" },
-  //   { id: 116, numero: "FAC-2025-008", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2025", monto: 74000000, estado: "Pagado", fecha: "2025-02-15", metodo_pago: "Transferencia" },
-  //   { id: 117, numero: "FAC-2025-009", proveedor: "Eco Solutions", proyecto: "Comercial 2025", monto: 75000000, estado: "Pendiente", fecha: "2025-02-20", metodo_pago: "Efectivo" },
-
-  //   // 2025 - Marzo (6 facturas)
-  //   { id: 118, numero: "FAC-2025-010", proveedor: "Solar Tech", proyecto: "Industrial 2025", monto: 76000000, estado: "Pagado", fecha: "2025-03-05", metodo_pago: "Transferencia" },
-  //   { id: 119, numero: "FAC-2025-011", proveedor: "Green Energy", proyecto: "Residencial 2025", monto: 77000000, estado: "Pendiente", fecha: "2025-03-10", metodo_pago: "Efectivo" },
-  //   { id: 120, numero: "FAC-2025-012", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2025", monto: 78000000, estado: "Pagado", fecha: "2025-03-15", metodo_pago: "Transferencia" },
-  //   { id: 121, numero: "FAC-2025-013", proveedor: "Eco Solutions", proyecto: "Comercial 2025", monto: 79000000, estado: "Pendiente", fecha: "2025-03-20", metodo_pago: "Efectivo" },
-  //   { id: 122, numero: "FAC-2025-014", proveedor: "Paneles Plus", proyecto: "Comercial 2025", monto: 80000000, estado: "Cancelado", fecha: "2025-03-25", metodo_pago: "Tarjeta" },
-  //   { id: 123, numero: "FAC-2025-015", proveedor: "Solar Tech", proyecto: "Industrial 2025", monto: 81000000, estado: "Pagado", fecha: "2025-03-30", metodo_pago: "Transferencia" },
-
-  //   // 2025 - Abril (3 facturas)
-  //   { id: 124, numero: "FAC-2025-016", proveedor: "Green Energy", proyecto: "Residencial 2025", monto: 82000000, estado: "Pendiente", fecha: "2025-04-10", metodo_pago: "Efectivo" },
-  //   { id: 125, numero: "FAC-2025-017", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2025", monto: 83000000, estado: "Pagado", fecha: "2025-04-15", metodo_pago: "Transferencia" },
-  //   { id: 126, numero: "FAC-2025-018", proveedor: "Eco Solutions", proyecto: "Comercial 2025", monto: 84000000, estado: "Pendiente", fecha: "2025-04-20", metodo_pago: "Efectivo" },
-
-  //   // 2025 - Mayo (5 facturas)
-  //   { id: 127, numero: "FAC-2025-019", proveedor: "Solar Tech", proyecto: "Industrial 2025", monto: 85000000, estado: "Pagado", fecha: "2025-05-05", metodo_pago: "Transferencia" },
-  //   { id: 128, numero: "FAC-2025-020", proveedor: "Green Energy", proyecto: "Residencial 2025", monto: 86000000, estado: "Pendiente", fecha: "2025-05-10", metodo_pago: "Efectivo" },
-  //   { id: 129, numero: "FAC-2025-021", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2025", monto: 87000000, estado: "Pagado", fecha: "2025-05-15", metodo_pago: "Transferencia" },
-  //   { id: 130, numero: "FAC-2025-022", proveedor: "Eco Solutions", proyecto: "Comercial 2025", monto: 88000000, estado: "Pendiente", fecha: "2025-05-20", metodo_pago: "Efectivo" },
-  //   { id: 131, numero: "FAC-2025-023", proveedor: "Paneles Plus", proyecto: "Comercial 2025", monto: 89000000, estado: "Cancelado", fecha: "2025-05-25", metodo_pago: "Tarjeta" },
-
-  //   // 2025 - Junio (4 facturas)
-  //   { id: 132, numero: "FAC-2025-024", proveedor: "Solar Tech", proyecto: "Industrial 2025", monto: 90000000, estado: "Pagado", fecha: "2025-06-05", metodo_pago: "Transferencia" },
-  //   { id: 133, numero: "FAC-2025-025", proveedor: "Green Energy", proyecto: "Residencial 2025", monto: 91000000, estado: "Pendiente", fecha: "2025-06-10", metodo_pago: "Efectivo" },
-  //   { id: 134, numero: "FAC-2025-026", proveedor: "Energía Solar S.A.", proyecto: "Residencial 2025", monto: 92000000, estado: "Pagado", fecha: "2025-06-15", metodo_pago: "Transferencia" },
-  //   { id: 135, numero: "FAC-2025-027", proveedor: "Eco Solutions", proyecto: "Comercial 2025", monto: 93000000, estado: "Pendiente", fecha: "2025-06-20", metodo_pago: "Efectivo" }
-  // ];
+  // Estados para gráficas
+  const [loadingGraficas, setLoadingGraficas] = React.useState(true);
+  const [facturasPorMes, setFacturasPorMes] = React.useState([]);
+  const [topProveedores, setTopProveedores] = React.useState([]);
+  const [estadosFacturas, setEstadosFacturas] = React.useState([]);
+  const [metodosPago, setMetodosPago] = React.useState([]);
 
   // 2. Filtro por mes y año
   const [selectedMonth, setSelectedMonth] = React.useState("");
@@ -237,15 +198,29 @@ const Dashboard = () => {
   // 3. Datos derivados para widgets, gráficas y tablas
   // a) Resumen
   const resumenFiltrado = React.useMemo(() => {
+    console.log('🔍 Analizando facturas filtradas:', facturasFiltradas);
+    
     const total_facturas = facturasFiltradas.length;
-    const monto_total = facturasFiltradas.filter(f => f.estado === 'Pagado').reduce((acc, f) => acc + f.monto, 0);
-    const facturas_pendientes = facturasFiltradas.filter(f => f.estado === 'Pendiente').length;
-    const facturas_pagadas = facturasFiltradas.filter(f => f.estado === 'Pagado').length;
-    const facturas_canceladas = facturasFiltradas.filter(f => f.estado === 'Cancelado').length;
+    
+    // Análisis detallado del monto total
+    const facturasPagadas = facturasFiltradas.filter(f => f.status === 'Pagado');
+    console.log('📋 Facturas pagadas:', facturasPagadas);
+    
+    const monto_total = facturasPagadas.reduce((acc, f) => {
+      console.log(`💰 Sumando factura ${f.number}: ${f.amount} (tipo: ${typeof f.amount})`);
+      return acc + f.amount;
+    }, 0);
+    
+    console.log('💵 Monto total calculado:', monto_total);
+    
+    const facturas_pendientes = facturasFiltradas.filter(f => f.status === 'Pendiente').length;
+    const facturas_pagadas = facturasPagadas.length;
+    const facturas_canceladas = facturasFiltradas.filter(f => f.status === 'Cancelado').length;
     const promedio_factura = total_facturas ? Math.round(monto_total / total_facturas) : 0;
     const facturas_mes_actual = total_facturas;
     const monto_mes_actual = monto_total;
-    return {
+    
+    const resumen = {
       total_facturas,
       monto_total,
       facturas_pendientes,
@@ -257,22 +232,36 @@ const Dashboard = () => {
       crecimiento_mensual: 0,
       crecimiento_anual: 0
     };
+    
+    console.log('📊 Resumen final:', resumen);
+    return resumen;
   }, [facturasFiltradas]);
 
-  // b) Facturas por mes (para gráfica de líneas)
+  // b) Facturas por mes (para gráfica de líneas) - usar datos del backend
   const facturasPorMesFiltradas = React.useMemo(() => {
+    // Si tenemos datos del backend, usarlos
+    if (facturasPorMes.length > 0) {
+      return facturasPorMes.map(item => ({
+        mes: item.mes,
+        anio: item.anio,
+        cantidad: item.cantidad,
+        monto: item.monto
+      }));
+    }
+    
+    // Fallback a datos locales si no hay datos del backend
     const map = {};
     facturasFiltradas.forEach(f => {
-      const fecha = new Date(f.fecha);
+      const fecha = new Date(f.date);
       const mes = fecha.toLocaleString('es-ES', { month: 'short' });
       const anio = fecha.getFullYear();
       const key = `${mes}-${anio}`;
       if (!map[key]) map[key] = { mes, anio, cantidad: 0, monto: 0 };
       map[key].cantidad++;
-      map[key].monto += f.monto;
+      map[key].monto += f.amount;
     });
     return Object.values(map).sort((a, b) => (a.anio - b.anio) || (new Date(`${a.mes} 1, 2000`) - new Date(`${b.mes} 1, 2000`)));
-  }, [facturasFiltradas]);
+  }, [facturasPorMes, facturasFiltradas]);
 
   const facturasPorMesUltimos6 = React.useMemo(() => {
     const arr = facturasPorMesFiltradas;
@@ -293,65 +282,100 @@ const Dashboard = () => {
   const lineChartOptions = {
     chart: {
       toolbar: { show: false },
+      background: 'transparent',
     },
     tooltip: {
-      style: { fontSize: "12px", backgroundColor: "#000000" },
+      style: { fontSize: "12px", backgroundColor: "#2A2B31" },
       theme: "dark",
     },
     xaxis: {
       categories: facturasPorMesUltimos6.map(item => `${item.mes} ${item.anio}`),
       labels: {
-        style: { colors: "#A3AED0", fontSize: "14px", fontWeight: "500" },
+        style: { colors: "#B0B3B8", fontSize: "14px", fontWeight: "500" },
       },
     },
     yaxis: [
       {
         title: { text: "Cantidad de Facturas" },
-        labels: { style: { colors: "#A3AED0", fontSize: "14px" } },
+        labels: { style: { colors: "#B0B3B8", fontSize: "14px" } },
       },
       {
         opposite: true,
         title: { text: "Monto (Millones)" },
-        labels: { style: { colors: "#A3AED0", fontSize: "14px" } },
+        labels: { style: { colors: "#B0B3B8", fontSize: "14px" } },
       }
     ],
-    colors: ["#4318FF", "#6AD2FF"],
-    grid: { strokeDashArray: 5 },
+    colors: ["#00C875", "#3B82F6"],
+    grid: { 
+      strokeDashArray: 5,
+      borderColor: "#4B5563",
+      xaxis: { lines: { show: true, color: "#4B5563" } },
+      yaxis: { lines: { show: true, color: "#4B5563" } }
+    },
     dataLabels: { enabled: false },
   };
 
-  // c) Top proveedores
+  // c) Top proveedores - usar datos del backend
   const topProveedoresFiltrados = React.useMemo(() => {
+    // Si tenemos datos del backend, usarlos
+    if (topProveedores.length > 0) {
+      return topProveedores.map(item => ({
+        nombre: item.nombre,
+        monto: item.monto,
+        cantidad: item.cantidad
+      }));
+    }
+    
+    // Fallback a datos locales si no hay datos del backend
     const map = {};
     facturasFiltradas.forEach(f => {
-      if (!map[f.proveedor]) map[f.proveedor] = { nombre: f.proveedor, monto: 0, cantidad: 0 };
-      map[f.proveedor].monto += f.monto;
-      map[f.proveedor].cantidad += 1;
+      if (!map[f.supplier]) map[f.supplier] = { nombre: f.supplier, monto: 0, cantidad: 0 };
+      map[f.supplier].monto += f.amount;
+      map[f.supplier].cantidad += 1;
     });
     return Object.values(map).sort((a, b) => b.monto - a.monto).slice(0, 5);
-  }, [facturasFiltradas]);
+  }, [topProveedores, facturasFiltradas]);
 
-  // d) Métodos de pago
+  // d) Métodos de pago - usar datos del backend
   const metodosPosibles = ["Transferencia", "Efectivo", "Tarjeta", "Credito"];
 
   const metodosPagoFiltrados = React.useMemo(() => {
+    // Si tenemos datos del backend, usarlos
+    if (metodosPago.length > 0) {
+      return metodosPago.map(item => ({
+        metodo: item.metodo,
+        cantidad: item.cantidad
+      }));
+    }
+    
+    // Fallback a datos locales si no hay datos del backend
     const map = {};
     facturasFiltradas.forEach(f => {
-      map[f.metodo_pago] = (map[f.metodo_pago] || 0) + 1;
+      map[f.payment_method] = (map[f.payment_method] || 0) + 1;
     });
     return metodosPosibles.map(metodo => ({
       metodo,
       cantidad: map[metodo] || 0
     }));
-  }, [facturasFiltradas]);
+  }, [metodosPago, facturasFiltradas]);
 
-  // e) Estados de facturas
+  // e) Estados de facturas - usar datos del backend
   const estadosPosibles = ["Pagado", "Pendiente", "Cancelado"];
 
   const facturasPorEstadoFiltradas = React.useMemo(() => {
+    // Si tenemos datos del backend, usarlos
+    if (estadosFacturas.length > 0) {
+      return estadosFacturas.map(item => ({
+        estado: item.estado,
+        cantidad: item.cantidad,
+        porcentaje: item.porcentaje
+      }));
+    }
+    
+    // Fallback a datos locales si no hay datos del backend
     const map = {};
     facturasFiltradas.forEach(f => {
-      map[f.estado] = (map[f.estado] || 0) + 1;
+      map[f.status] = (map[f.status] || 0) + 1;
     });
     const total = facturasFiltradas.length;
     return estadosPosibles.map(estado => ({
@@ -359,27 +383,39 @@ const Dashboard = () => {
       cantidad: map[estado] || 0,
       porcentaje: total ? (((map[estado] || 0) * 100) / total).toFixed(1) : 0
     }));
-  }, [facturasFiltradas]);
+  }, [estadosFacturas, facturasFiltradas]);
 
-  // f) Proyectos activos
+  // f) Proyectos activos - usar datos del dashboard financiero
   const proyectosActivosFiltrados = React.useMemo(() => {
+    // Si tenemos datos del dashboard financiero, usarlos
+    if (proyectosActivos && proyectosActivos.projects) {
+      return proyectosActivos.projects.map(proyecto => ({
+        id: proyecto.project_id,
+        nombre: proyecto.project_name,
+        total_gastado: proyecto.financial_summary.total_paid_amount,
+        cantidad_facturas: proyecto.financial_summary.total_paid_invoices,
+        descripcion: `Cliente: ${proyecto.client?.name || 'N/A'} - Potencia: ${proyecto.quotation?.power_kwp || 0} kWp`
+      }));
+    }
+    
+    // Fallback a datos locales si no hay datos del dashboard
     const map = {};
     facturasFiltradas.forEach(f => {
-      if (f.estado === 'Pagado') {
-        map[f.proyecto] = map[f.proyecto] || { total_gastado: 0, cantidad_facturas: 0, nombre: f.proyecto, descripcion: `Proyecto solar ${f.proyecto}` };
-        map[f.proyecto].total_gastado += f.monto;
-        map[f.proyecto].cantidad_facturas += 1;
+      if (f.status === 'Pagado') {
+        map[f.project] = map[f.project] || { total_gastado: 0, cantidad_facturas: 0, nombre: f.project, descripcion: `Proyecto solar ${f.project}` };
+        map[f.project].total_gastado += f.amount;
+        map[f.project].cantidad_facturas += 1;
       }
     });
     return Object.values(map).map((p, idx) => ({
       id: idx + 1,
       ...p
     }));
-  }, [facturasFiltradas]);
+  }, [proyectosActivos, facturasFiltradas]);
 
   // g) Últimas facturas (ordenadas por fecha descendente)
   const ultimasFacturasFiltradas = React.useMemo(() => {
-    return [...facturasFiltradas].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    return [...facturasFiltradas].sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [facturasFiltradas]);
 
   const formatCurrency = (amount) => {
@@ -439,15 +475,9 @@ const Dashboard = () => {
   // Función para cargar proyectos activos
   const cargarProyectosActivos = async () => {
     try {
-      // setLoadingProyectos(true); // This state is no longer needed for projects
-      // setErrorProyectos(null); // This state is no longer needed for projects
       const data = await proyectosService.getProyectosActivos();
-      // setProyectosActivos(data); // This state is no longer needed for projects
     } catch (error) {
       console.error('Error al cargar proyectos:', error);
-      // setErrorProyectos('Error al cargar los proyectos. Por favor, inténtalo de nuevo.'); // This state is no longer needed for projects
-    } finally {
-      // setLoadingProyectos(false); // This state is no longer needed for projects
     }
   };
 
@@ -477,16 +507,17 @@ const Dashboard = () => {
     {
       name: "Cantidad de Facturas",
       data: topProveedoresFiltrados.map(item => item.cantidad),
-      color: "#6AD2FF"
+      color: "#00C875"
     }
   ];
 
   const barChartOptionsProveedores = {
     chart: {
       toolbar: { show: false },
+      background: 'transparent',
     },
     tooltip: {
-      style: { fontSize: "12px", backgroundColor: "#000000" },
+      style: { fontSize: "12px", backgroundColor: "#2A2B31" },
       theme: "dark",
       y: {
         formatter: function (val) {
@@ -497,16 +528,21 @@ const Dashboard = () => {
     xaxis: {
       categories: topProveedoresFiltrados.map(item => item.nombre),
       labels: {
-        style: { colors: "#A3AED0", fontSize: "12px" },
+        style: { colors: "#B0B3B8", fontSize: "12px" },
         rotate: -45,
         rotateAlways: false
       },
     },
     yaxis: {
       title: { text: "Cantidad de Facturas" },
-      labels: { style: { colors: "#A3AED0", fontSize: "14px" } },
+      labels: { style: { colors: "#B0B3B8", fontSize: "14px" } },
     },
-    grid: { strokeDashArray: 5 },
+    grid: { 
+      strokeDashArray: 5,
+      borderColor: "#4B5563",
+      xaxis: { lines: { show: true, color: "#4B5563" } },
+      yaxis: { lines: { show: true, color: "#4B5563" } }
+    },
     dataLabels: { enabled: false },
     plotOptions: {
       bar: { borderRadius: 10, columnWidth: "40px" },
@@ -517,29 +553,35 @@ const Dashboard = () => {
     {
       name: "Cantidad",
       data: metodosPagoFiltrados.map(item => item.cantidad),
-      color: "#6AD2FF"
+      color: "#00C875"
     }
   ];
 
   const barChartOptionsMetodos = {
     chart: {
       toolbar: { show: false },
+      background: 'transparent',
     },
     tooltip: {
-      style: { fontSize: "12px", backgroundColor: "#000000" },
+      style: { fontSize: "12px", backgroundColor: "#2A2B31" },
       theme: "dark",
     },
     xaxis: {
       categories: metodosPagoFiltrados.map(item => item.metodo),
       labels: {
-        style: { colors: "#A3AED0", fontSize: "14px" },
+        style: { colors: "#B0B3B8", fontSize: "14px" },
       },
     },
     yaxis: {
       title: { text: "Cantidad de Facturas" },
-      labels: { style: { colors: "#A3AED0", fontSize: "14px" } },
+      labels: { style: { colors: "#B0B3B8", fontSize: "14px" } },
     },
-    grid: { strokeDashArray: 5 },
+    grid: { 
+      strokeDashArray: 5,
+      borderColor: "#4B5563",
+      xaxis: { lines: { show: true, color: "#4B5563" } },
+      yaxis: { lines: { show: true, color: "#4B5563" } }
+    },
     dataLabels: { enabled: false },
     plotOptions: {
       bar: { borderRadius: 10, columnWidth: "40px" },
@@ -549,8 +591,11 @@ const Dashboard = () => {
   const pieChartData = facturasPorEstadoFiltradas.map(item => item.cantidad);
   const pieChartOptions = {
     labels: facturasPorEstadoFiltradas.map(item => item.estado),
-    colors: ["#18981D", "#FFA500", "#FF0000"],
-    chart: { width: "50px" },
+    colors: ["#00C875", "#F59E0B", "#EF4444"],
+    chart: { 
+      width: "50px",
+      background: 'transparent',
+    },
     states: { hover: { filter: { type: "none" } } },
     legend: { show: false },
     dataLabels: { enabled: false },
@@ -561,104 +606,337 @@ const Dashboard = () => {
         donut: { labels: { show: false } },
       },
     },
-    fill: { colors: ["#18981D", "#FFA500", "#FF0000"] },
+    fill: { colors: ["#00C875", "#F59E0B", "#EF4444"] },
     tooltip: {
       enabled: true,
       theme: "dark",
-      style: { fontSize: "12px", backgroundColor: "#000000" },
+      style: { fontSize: "12px", backgroundColor: "#2A2B31" },
     },
+  };
+
+  // Cargar datos financieros
+  const cargarDatosFinancieros = async () => {
+    try {
+      setLoadingFinanciero(true);
+      
+      // Cargar datos en paralelo
+      const [
+        resumenCajaData,
+        ingresosData,
+        egresosData,
+        facturasProveedoresData,
+        alertasData
+      ] = await Promise.all([
+        gestionFinancieraService.getResumenCaja(),
+        gestionFinancieraService.getIngresos(),
+        gestionFinancieraService.getEgresos(),
+        gestionFinancieraService.getFacturasProveedores(),
+        gestionFinancieraService.getAlertasFinancieras()
+      ]);
+
+      setResumenCaja(resumenCajaData);
+      setIngresos(Array.isArray(ingresosData) ? ingresosData : ingresosData.data || []);
+      setEgresos(Array.isArray(egresosData) ? egresosData : egresosData.data || []);
+      setFacturasProveedores(Array.isArray(facturasProveedoresData) ? facturasProveedoresData : facturasProveedoresData.data || []);
+      setAlertasFinancieras(Array.isArray(alertasData) ? alertasData : alertasData.data || []);
+      
+    } catch (error) {
+      console.log('⚠️ Error al cargar datos financieros, usando datos de prueba:', error);
+      // Usar datos mock si la API falla
+      setResumenCaja(MOCK_RESUMEN_CAJA);
+      setIngresos(MOCK_INGRESOS);
+      setEgresos(MOCK_EGRESOS);
+      setFacturasProveedores(MOCK_FACTURAS_PROVEEDORES);
+      setAlertasFinancieras(MOCK_ALERTAS_FINANCIERAS);
+    } finally {
+      setLoadingFinanciero(false);
+    }
+  };
+
+  // Cargar facturas desde el backend
+  const cargarFacturas = async () => {
+    try {
+      setLoadingFacturas(true);
+      const storedUser = localStorage.getItem('user');
+      let token = null;
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          token = userData.token;
+        } catch (e) {}
+      }
+      if (!token) throw new Error('No se encontró token de autorización');
+      
+      const response = await fetch(getApiUrl('/api/purchases'), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        // Si la API falla, usar datos mock
+        console.log('⚠️ API no disponible, usando datos de prueba');
+        setFacturas(MOCK_FACTURAS);
+        setUsingMockData(true);
+        setErrorFacturas(""); // Limpiar error para mostrar datos mock
+        return;
+      }
+      
+      const data = await response.json();
+      
+      // Verificar si la respuesta indica error
+      if (data.success === false) {
+        console.log('⚠️ API retornó error, usando datos de prueba:', data.message);
+        setFacturas(MOCK_FACTURAS);
+        setUsingMockData(true);
+        setErrorFacturas(""); // Limpiar error para mostrar datos mock
+        return;
+      }
+      
+      console.log('Datos de facturas recibidos:', data);
+      
+      // Usar los datos directamente como en facturas.jsx
+      const facturasData = Array.isArray(data) ? data : data.data || [];
+      console.log('📊 Datos de facturas recibidos:', facturasData);
+      console.log('📋 Ejemplo de estructura de factura:', facturasData[0]);
+      
+      setFacturas(facturasData);
+    } catch (error) {
+      // Si hay error, usar datos mock
+      console.log('⚠️ Error al conectar con API, usando datos de prueba:', error.message);
+      setFacturas(MOCK_FACTURAS);
+      setUsingMockData(true);
+      setErrorFacturas(""); // Limpiar error para mostrar datos mock
+    } finally {
+      setLoadingFacturas(false);
+    }
+  };
+
+  // Función para cargar datos del dashboard financiero
+  const cargarDashboardFinanciero = async () => {
+    try {
+      setLoadingDashboardFinanciero(true);
+      
+      // Cargar datos en paralelo
+      const [
+        resumenData,
+        facturasProximasData,
+        proyectosActivosData
+      ] = await Promise.all([
+        financialDashboardService.getResumenFinanciero(),
+        financialDashboardService.getFacturasProximasVencer(diasFiltro),
+        financialDashboardService.getProyectosActivos()
+      ]);
+
+      // Formatear datos
+      if (resumenData.success) {
+        const formattedResumen = financialDashboardService.formatResumenFinancieroForFrontend(resumenData);
+        setResumenFinanciero(formattedResumen);
+      }
+
+      if (facturasProximasData.success) {
+        const formattedFacturas = financialDashboardService.formatFacturasProximasVencerForFrontend(facturasProximasData);
+        setFacturasProximasVencer(formattedFacturas);
+      }
+
+      if (proyectosActivosData.success) {
+        const formattedProyectos = financialDashboardService.formatProyectosActivosForFrontend(proyectosActivosData);
+        console.log('🏗️ Datos proyectos activos cargados:', formattedProyectos);
+        setProyectosActivos(formattedProyectos);
+      }
+      
+    } catch (error) {
+      console.log('⚠️ Error al cargar dashboard financiero:', error);
+      // Los datos se mantienen como null para mostrar fallback
+    } finally {
+      setLoadingDashboardFinanciero(false);
+    }
+  };
+
+  // Función para cargar facturas próximas a vencer con filtro de días
+  const cargarFacturasProximasVencer = async (days = 30) => {
+    try {
+      const data = await financialDashboardService.getFacturasProximasVencer(days);
+      if (data.success) {
+        const formattedData = financialDashboardService.formatFacturasProximasVencerForFrontend(data);
+        setFacturasProximasVencer(formattedData);
+      }
+    } catch (error) {
+      console.error('Error al cargar facturas próximas a vencer:', error);
+    }
+  };
+
+  // Función para cargar datos de las gráficas
+  const cargarDatosGraficas = async () => {
+    try {
+      setLoadingGraficas(true);
+      
+      // Cargar datos en paralelo
+      const [
+        facturasPorMesData,
+        topProveedoresData,
+        estadosFacturasData,
+        metodosPagoData
+      ] = await Promise.all([
+        financialDashboardService.getFacturasPorMes(selectedYear, selectedMonth),
+        financialDashboardService.getTopProveedores(5),
+        financialDashboardService.getEstadosFacturas(),
+        financialDashboardService.getMetodosPago()
+      ]);
+
+      // Formatear datos
+      if (facturasPorMesData.success) {
+        const formattedData = financialDashboardService.formatFacturasPorMesForFrontend(facturasPorMesData);
+        console.log('📊 Datos facturas por mes cargados:', formattedData);
+        setFacturasPorMes(formattedData);
+      }
+
+      if (topProveedoresData.success) {
+        const formattedData = financialDashboardService.formatTopProveedoresForFrontend(topProveedoresData);
+        console.log('🏆 Datos top proveedores cargados:', formattedData);
+        setTopProveedores(formattedData);
+      }
+
+      if (estadosFacturasData.success) {
+        const formattedData = financialDashboardService.formatEstadosFacturasForFrontend(estadosFacturasData);
+        console.log('📈 Datos estados facturas cargados:', formattedData);
+        setEstadosFacturas(formattedData);
+      }
+
+      if (metodosPagoData.success) {
+        const formattedData = financialDashboardService.formatMetodosPagoForFrontend(metodosPagoData);
+        console.log('💳 Datos métodos de pago cargados:', formattedData);
+        setMetodosPago(formattedData);
+      }
+      
+    } catch (error) {
+      console.log('⚠️ Error al cargar datos de gráficas:', error);
+      // Los datos se mantienen como arrays vacíos para mostrar fallback
+    } finally {
+      setLoadingGraficas(false);
+    }
   };
 
   // Cargar proyectos al montar el componente
   React.useEffect(() => {
     cargarProyectosActivos();
+    cargarDatosFinancieros();
+    cargarFacturas();
+    cargarDashboardFinanciero();
+    cargarDatosGraficas();
   }, []);
 
-
+  // Recargar gráficas cuando cambie el filtro de fecha
   React.useEffect(() => {
-    // Datos de prueba para facturas
-    const facturasPrueba = [
-      { id: 1, numero: "FAC-2025-001", proveedor: "Proveedor A", proyecto: "Proyecto X", monto: 10000, estado: "Pagado", fecha: "2025-08-01", metodo_pago: "Transferencia" },
-      { id: 2, numero: "FAC-2025-002", proveedor: "Proveedor B", proyecto: "Proyecto Y", monto: 20000, estado: "Pendiente", fecha: "2025-08-02", metodo_pago: "Efectivo" },
-      { id: 3, numero: "FAC-2025-003", proveedor: "Proveedor C", proyecto: "Proyecto Z", monto: 15000, estado: "Cancelado", fecha: "2025-08-03", metodo_pago: "Tarjeta" },
-    ];
-    setFacturas(facturasPrueba);
-    setLoadingFacturas(false);
-  }, []);
+    cargarDatosGraficas();
+  }, [selectedYear, selectedMonth]);
 
-  if (loadingFacturas) return <div className="p-8 text-center">Cargando facturas...</div>;
-  // Si hay error, mostrar datos de prueba en vez de error
-  // if (errorFacturas) return <div className="p-8 text-center text-red-600">Error: {errorFacturas}</div>;
+  if (loadingFacturas && loadingFinanciero) return <div className="p-8 text-center text-text-primary">Cargando dashboard...</div>;
+  
+  if (errorFacturas && !usingMockData) return <div className="p-8 text-center text-red-400">Error al cargar facturas: {errorFacturas}</div>;
 
   return (
-    <div>
+    <div className="bg-primary min-h-screen p-6">
+      {/* Mensaje de datos de prueba */}
+      {usingMockData && (
+        <div className="mb-6 bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <div className="text-yellow-400 text-lg">⚠️</div>
+            <div>
+              <div className="text-yellow-400 font-medium">Usando datos de prueba</div>
+              <div className="text-yellow-300 text-sm">
+                La API no está disponible. Se muestran datos de ejemplo para demostrar las funcionalidades del dashboard.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mensaje de datos del backend */}
+      {!usingMockData && (facturasPorMes.length > 0 || topProveedores.length > 0 || estadosFacturas.length > 0 || metodosPago.length > 0) && (
+        <div className="mb-6 bg-green-900/20 border border-green-700/50 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <div className="text-green-400 text-lg">✅</div>
+            <div>
+              <div className="text-green-400 font-medium">Datos del backend cargados</div>
+              <div className="text-green-300 text-sm">
+                Las gráficas están mostrando datos reales del sistema. Gráficas: {[
+                  facturasPorMes.length > 0 && 'Facturas por Mes',
+                  topProveedores.length > 0 && 'Top Proveedores', 
+                  estadosFacturas.length > 0 && 'Estados',
+                  metodosPago.length > 0 && 'Métodos de Pago'
+                ].filter(Boolean).join(', ')}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Card widget */}
-      <div className="mt-3 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-3 3xl:grid-cols-6">
-        <Widget
-          icon={<MdReceipt className="h-7 w-7" />}
-          title={"Total Facturas"}
-          subtitle={formatNumber(resumenFiltrado.total_facturas)}
-        />
+      {loadingFacturas ? (
+        <div className="mt-3 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-3 3xl:grid-cols-6">
+          {[...Array(6)].map((_, index) => (
+            <div key={index} className="bg-primary-card border border-gray-700/50 rounded-xl p-6 animate-pulse">
+              <div className="flex items-center justify-between">
+                <div className="h-8 w-8 bg-gray-600 rounded-lg"></div>
+                <div className="h-4 w-20 bg-gray-600 rounded"></div>
+              </div>
+              <div className="mt-4">
+                <div className="h-6 w-24 bg-gray-600 rounded mb-2"></div>
+                <div className="h-4 w-16 bg-gray-600 rounded"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-3 grid grid-cols-1 gap-5 md:grid-cols-3">
         <Widget
           icon={<MdAttachMoney className="h-6 w-6" />}
-          title={"Monto Total"}
-          subtitle={formatCurrencyAbbreviated(resumenFiltrado.monto_total)}
+          title={"Total Gastado"}
+          subtitle={formatCurrencyAbbreviated(resumenFinanciero?.overview?.total_amount || resumenFiltrado.monto_total)}
         />
         <Widget
-          icon={<MdPending className="h-7 w-7" />}
-          title={"Facturas Pendientes"}
-          subtitle={formatNumber(resumenFiltrado.facturas_pendientes)}
+          icon={<MdPending className="h-6 w-6" />}
+          title={"Gastos Pendientes"}
+          subtitle={formatCurrencyAbbreviated(resumenFinanciero?.overview?.total_balance || 0)}
         />
         <Widget
-          icon={<MdCheckCircle className="h-6 w-6" />}
-          title={"Facturas Pagadas"}
-          subtitle={formatNumber(resumenFiltrado.facturas_pagadas)}
+          icon={<MdWarning className="h-6 w-6" />}
+          title={"Facturas Críticas"}
+          subtitle={formatNumber(facturasProximasVencer?.summary?.total_critical || 0)}
         />
-        <Widget
-          icon={<MdCancel className="h-7 w-7" />}
-          title={"Facturas Canceladas"}
-          subtitle={formatNumber(resumenFiltrado.facturas_canceladas)}
-        />
-        <Widget
-          icon={<MdTrendingUp className="h-6 w-6" />}
-          title={"Promedio por Factura"}
-          subtitle={formatCurrencyAbbreviated(resumenFiltrado.promedio_factura)}
-        />
-      </div>
+        </div>
+      )}
+
 
       {/* Charts */}
       <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
         {/* Gráfica de líneas - Facturas por mes */}
-        <Card extra="!p-[20px] text-center">
-          <div className="flex justify-between">
-            <button
-              className="linear mt-1 flex items-center justify-center gap-2 rounded-lg bg-lightPrimary p-2 text-gray-600 transition duration-200 hover:cursor-pointer hover:bg-gray-100 active:bg-gray-200 dark:bg-navy-700 dark:hover:opacity-90 dark:active:opacity-80"
-              onClick={() => setCalendarOpen(true)}
-              type="button"
-            >
-              <MdOutlineCalendarToday />
-              <span className="text-sm font-medium text-gray-600">Filtrar por mes y año</span>
-              {selectedMonth && selectedYear && (
-                <span className="ml-2 text-xs text-brand-500">{`${selectedYear}-${selectedMonth}`}</span>
+        <Card extra="!p-4 text-center">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-text-primary">Gastos por Mes</h3>
+            <div className="flex items-center gap-2">
+              {loadingGraficas && (
+                <div className="flex items-center gap-2 text-blue-400 text-sm">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+                  <span>Cargando...</span>
+                </div>
               )}
-            </button>
-            {(selectedMonth || selectedYear) && (
               <button
-                className="ml-2 text-xs text-red-500 underline"
-                onClick={() => { setSelectedMonth(""); setSelectedYear(""); }}
+                className="flex items-center gap-2 rounded-lg bg-gray-700/50 p-2 text-text-secondary hover:bg-gray-600/50 transition duration-200 text-sm"
+                onClick={() => setCalendarOpen(true)}
                 type="button"
               >
-                Limpiar filtro
+                <MdOutlineCalendarToday className="h-4 w-4" />
+                <span>Filtrar</span>
               </button>
-            )}
-            <button className="!linear z-[1] flex items-center justify-center rounded-lg bg-lightPrimary p-2 text-brand-500 !transition !duration-200 hover:bg-gray-100 active:bg-gray-200 dark:bg-navy-700 dark:text-white dark:hover:bg-white/20 dark:active:bg-white/10">
-              <MdBarChart className="h-6 w-6" />
-            </button>
+            </div>
           </div>
           {calendarOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <div className="bg-white rounded-lg shadow-lg p-6 relative">
-                <button onClick={() => setCalendarOpen(false)} className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-xl">&times;</button>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+              <div className="bg-primary-card rounded-xl shadow-2xl p-4 relative border border-gray-700/50">
+                <button onClick={() => setCalendarOpen(false)} className="absolute top-2 right-2 text-text-secondary hover:text-text-primary text-xl">&times;</button>
                 <Calendar
                   onChange={handleCalendarChange}
                   value={
@@ -671,22 +949,23 @@ const Dashboard = () => {
                   maxDetail="year"
                   minDetail="decade"
                   locale="es-ES"
+                  className="dark-theme"
                 />
-                <div className="text-xs text-gray-500 mt-2">Selecciona un mes y año</div>
+                <div className="text-xs text-text-secondary mt-2">Selecciona un mes y año</div>
               </div>
             </div>
           )}
 
           <div className="flex h-full w-full flex-row justify-between sm:flex-wrap lg:flex-nowrap 2xl:overflow-hidden">
             <div className="flex flex-col">
-              <p className="mt-[20px] text-3xl font-bold text-navy-700 dark:text-white">
+              <p className="mt-2 text-2xl font-bold text-text-primary">
                 {formatNumber(resumenFiltrado.facturas_mes_actual)}
               </p>
               <div className="flex flex-col items-start">
-                <p className="mt-2 text-sm text-gray-600">Facturas este mes</p>
+                <p className="mt-1 text-sm text-text-secondary">Gastos este mes</p>
                 <div className="flex flex-row items-center justify-center">
-                  <MdTrendingUp className="font-medium text-green-500" />
-                  <p className="text-sm font-bold text-green-500"> +{resumenFiltrado.crecimiento_mensual}% </p>
+                  <MdTrendingUp className="font-medium text-accent-primary" />
+                  <p className="text-sm font-bold text-accent-primary"> +{resumenFiltrado.crecimiento_mensual}% </p>
                 </div>
               </div>
             </div>
@@ -697,18 +976,15 @@ const Dashboard = () => {
         </Card>
 
         {/* Gráfica de barras - Top proveedores */}
-        <Card extra="flex flex-col bg-white w-full rounded-3xl py-6 px-2 text-center">
-          <div className="mb-auto flex items-center justify-between px-6">
-            <h2 className="text-lg font-bold text-navy-700 dark:text-white">
+        <Card extra="flex flex-col w-full rounded-xl py-4 px-4 text-center">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-text-primary">
               Top Proveedores
-            </h2>
-            <button className="!linear z-[1] flex items-center justify-center rounded-lg bg-lightPrimary p-2 text-brand-500 !transition !duration-200 hover:bg-gray-100 active:bg-gray-200 dark:bg-navy-700 dark:text-white dark:hover:bg-white/20 dark:active:bg-white/10">
-              <MdBarChart className="h-6 w-6" />
-            </button>
+            </h3>
           </div>
 
-          <div className="md:mt-16 lg:mt-0">
-            <div className="h-[250px] w-full xl:h-[350px]">
+          <div className="md:mt-8 lg:mt-0">
+            <div className="h-[200px] w-full xl:h-[250px]">
               <BarChart
                 key={topProveedoresFiltrados.map(p => p.nombre).join('-')}
                 chartData={barChartDataProveedores}
@@ -722,23 +998,14 @@ const Dashboard = () => {
       {/* Tables & Charts */}
       <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
         {/* Gráfica circular - Estados de facturas */}
-        <Card extra="rounded-[20px] p-3">
-          <div className="flex flex-row justify-between px-3 pt-2">
-            <div>
-              <h4 className="text-lg font-bold text-navy-700 dark:text-white">
-                Estados de Facturas
-              </h4>
-            </div>
-            <div className="mb-6 flex items-center justify-center">
-              <select className="mb-3 mr-2 flex items-center justify-center text-sm font-bold text-gray-600 hover:cursor-pointer dark:!bg-navy-800 dark:text-white">
-                <option value="porcentaje">Por Porcentaje</option>
-                <option value="cantidad">Por Cantidad</option>
-                <option value="monto">Por Monto</option>
-              </select>
-            </div>
+        <Card extra="rounded-xl p-4">
+          <div className="flex flex-row justify-between mb-4">
+            <h4 className="text-lg font-semibold text-text-primary">
+              Estados de Facturas
+            </h4>
           </div>
 
-          <div className="mb-auto flex h-[220px] w-full items-center justify-center">
+          <div className="mb-auto flex h-[180px] w-full items-center justify-center">
             {pieChartData.some(val => Number(val) > 0) ? (
               <PieChart
                 key={facturasPorEstadoFiltradas.map(e => e.estado + '-' + e.cantidad).join('-')}
@@ -746,11 +1013,11 @@ const Dashboard = () => {
                 series={pieChartData}
               />
             ) : (
-              <span className="text-gray-400">No hay datos para mostrar</span>
+              <span className="text-text-secondary text-sm">No hay datos para mostrar</span>
             )}
           </div>
           
-          <div className="flex flex-row !justify-between rounded-2xl px-6 py-3 shadow-2xl shadow-shadow-500 dark:!bg-navy-700 dark:shadow-none">
+          <div className="flex flex-row !justify-between rounded-lg px-4 py-3 bg-gray-800/30">
             {facturasPorEstadoFiltradas.map((item, index) => (
               <div key={index} className="flex flex-col items-center justify-center">
                 <div className="flex items-center justify-center">
@@ -758,9 +1025,9 @@ const Dashboard = () => {
                     className="h-2 w-2 rounded-full" 
                     style={{ backgroundColor: pieChartOptions.colors[index] }}
                   />
-                  <p className="ml-1 text-sm font-normal text-gray-600">{item.estado}</p>
+                  <p className="ml-1 text-xs font-normal text-text-secondary">{item.estado}</p>
                 </div>
-                <p className="mt-px text-xl font-bold text-navy-700 dark:text-white">
+                <p className="mt-1 text-lg font-bold text-text-primary">
                   {item.porcentaje}%
                 </p>
               </div>
@@ -769,28 +1036,28 @@ const Dashboard = () => {
         </Card>
 
         {/* Gráfica de barras - Métodos de pago */}
-        <Card extra="pb-7 p-[20px]">
-          <div className="flex flex-row justify-between">
-            <div className="ml-1 pt-2">
-              <p className="text-sm font-medium leading-4 text-gray-600">
+        <Card extra="p-4">
+          <div className="flex flex-row justify-between mb-4">
+            <div>
+              <p className="text-sm font-medium text-text-secondary">
                 Métodos de Pago
               </p>
-              <p className="text-[34px] font-bold text-navy-700 dark:text-white">
+              <p className="text-2xl font-bold text-text-primary">
                 {formatNumber(resumenFiltrado.total_facturas)}{" "}
-                <span className="text-sm font-medium leading-6 text-gray-600">
+                <span className="text-sm font-medium text-text-secondary">
                   Facturas
                 </span>
               </p>
             </div>
-            <div className="mt-2 flex items-start">
-              <div className="flex items-center text-sm text-green-500">
-                <MdTrendingUp className="h-5 w-5" />
+            <div className="flex items-start">
+              <div className="flex items-center text-sm text-accent-primary">
+                <MdTrendingUp className="h-4 w-4" />
                 <p className="font-bold"> +{resumenFiltrado.crecimiento_anual}% </p>
               </div>
             </div>
           </div>
 
-          <div className="h-[300px] w-full pt-10 pb-0">
+          <div className="h-[200px] w-full">
             <BarChart
               key={metodosPagoFiltrados.map(m => m.metodo + '-' + m.cantidad).join('-')}
               chartData={barChartDataMetodos}
@@ -800,41 +1067,134 @@ const Dashboard = () => {
         </Card>
       </div>
 
+      {/* Facturas Próximas a Vencer */}
+      {!loadingDashboardFinanciero && facturasProximasVencer && (
+        <div className="mt-5">
+          <Card extra={"w-full h-full px-6 pb-6"}>
+            <div className="flex items-center justify-between py-3">
+              <div className="flex items-center space-x-2">
+                <MdWarning className="h-5 w-5 text-orange-500" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Facturas Próximas a Vencer
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowFacturasProximasVencer(true);
+                  cargarFacturasProximasVencer(diasFiltro);
+                }}
+                className="flex items-center gap-2 rounded-lg bg-orange-600/20 border border-orange-500/30 px-3 py-1.5 text-orange-400 hover:bg-orange-600/30 transition-all duration-200 text-sm font-medium"
+              >
+                <MdWarning className="h-4 w-4" />
+                Ver Todas
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-red-900/10 border border-red-500/20 rounded-lg p-3">
+                <div className="text-red-400 text-lg font-bold">
+                  {facturasProximasVencer.overdue.count}
+                </div>
+                <div className="text-text-secondary text-sm">Vencidas</div>
+                <div className="text-red-400 text-xs">
+                  {formatCurrencyAbbreviated(facturasProximasVencer.overdue.total_amount)}
+                </div>
+              </div>
+              <div className="bg-orange-900/10 border border-orange-500/20 rounded-lg p-3">
+                <div className="text-orange-400 text-lg font-bold">
+                  {facturasProximasVencer.upcoming_due.count}
+                </div>
+                <div className="text-text-secondary text-sm">Próximas</div>
+                <div className="text-orange-400 text-xs">
+                  {formatCurrencyAbbreviated(facturasProximasVencer.upcoming_due.total_amount)}
+                </div>
+              </div>
+              <div className="bg-yellow-900/10 border border-yellow-500/20 rounded-lg p-3">
+                <div className="text-yellow-400 text-lg font-bold">
+                  {facturasProximasVencer.summary.total_critical}
+                </div>
+                <div className="text-text-secondary text-sm">Críticas</div>
+                <div className="text-yellow-400 text-xs">
+                  {formatCurrencyAbbreviated(facturasProximasVencer.summary.total_overdue_amount)}
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Alertas Financieras */}
+      {!loadingFinanciero && alertasFinancieras.length > 0 && (
+        <div className="mt-5">
+          <Card extra={"w-full h-full px-6 pb-6"}>
+            <div className="flex items-center justify-between py-3">
+              <div className="flex items-center space-x-2">
+                <MdNotifications className="h-5 w-5 text-yellow-500" />
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Alertas
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {alertasFinancieras.slice(0, 6).map((alerta, index) => (
+                <div
+                  key={index}
+                  className={`p-3 rounded-lg border-l-3 ${
+                    alerta.prioridad === 'alta' 
+                      ? 'bg-red-900/10 border-red-500/30 text-red-400'
+                      : alerta.prioridad === 'media'
+                      ? 'bg-yellow-900/10 border-yellow-500/30 text-yellow-400'
+                      : 'bg-blue-900/10 border-blue-500/30 text-blue-400'
+                  }`}
+                >
+                  <div className="flex items-start space-x-2">
+                    <MdWarning className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h3 className="font-medium text-sm">{alerta.titulo}</h3>
+                      <p className="text-xs mt-1 opacity-80">{alerta.mensaje}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Tabla de Facturas por Proyectos */}
       <div className="mt-5">
-        <Card extra={"w-full h-full px-8 pb-8 sm:overflow-x-auto"}>
-          <div className="flex items-center justify-between py-4">
+        <Card extra={"w-full h-full px-6 pb-6 sm:overflow-x-auto"}>
+          <div className="flex items-center justify-between py-3">
             <div className="flex items-center space-x-2">
-              <MdFolder className="h-6 w-6 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-                Facturas por Proyectos
-              </h1>
+              <MdFolder className="h-5 w-5 text-accent-primary" />
+              <h2 className="text-lg font-semibold text-text-primary">
+                Gastos por Proyectos
+              </h2>
             </div>
           </div>
 
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-3 overflow-x-auto">
             {proyectosActivosFiltrados.length === 0 ? (
-              <div className="text-center py-8">
-                <MdFolder className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No hay proyectos con facturas</p>
+              <div className="text-center py-6">
+                <MdFolder className="h-8 w-8 text-text-secondary mx-auto mb-2" />
+                <p className="text-text-secondary text-sm">No hay proyectos con gastos</p>
               </div>
             ) : (
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Nombre del Proyecto</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Descripción</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Total Gastado</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-800">Cantidad de Facturas</th>
+                  <tr className="border-b border-text-disabled/20 bg-primary">
+                    <th className="px-4 py-3 text-left text-sm font-medium text-text-primary">Proyecto</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-text-primary">Total Gastado</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-text-primary">Facturas</th>
                   </tr>
                 </thead>
                 <tbody>
                   {proyectosActivosFiltrados.map((proyecto) => (
-                    <tr key={proyecto.id} className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-800 font-medium">{proyecto.nombre}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{proyecto.descripcion}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800 font-medium">{formatCurrency(proyecto.total_gastado)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{proyecto.cantidad_facturas}</td>
+                    <tr key={proyecto.id} className="border-b border-text-disabled/10 hover:bg-accent-primary/5 transition-colors">
+                      <td className="px-4 py-3 text-sm text-text-primary font-medium">{proyecto.nombre}</td>
+                      <td className="px-4 py-3 text-sm text-text-primary font-medium">{formatCurrency(proyecto.total_gastado)}</td>
+                      <td className="px-4 py-3 text-sm text-text-secondary">{proyecto.cantidad_facturas}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -844,6 +1204,7 @@ const Dashboard = () => {
         </Card>
       </div>
 
+
       {/* Modal para mostrar facturas del proyecto */}
       <ProjectInvoicesModal
         isOpen={modalOpen}
@@ -852,6 +1213,146 @@ const Dashboard = () => {
         invoices={selectedProjectInvoices}
         loading={loadingFacturas}
       />
+
+      {/* Modal de Facturas Próximas a Vencer */}
+      {showFacturasProximasVencer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-primary-card border border-gray-700/50 rounded-xl p-6 w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
+                <MdWarning className="w-6 h-6 text-orange-500" />
+                Facturas Próximas a Vencer
+              </h2>
+              <div className="flex items-center gap-3">
+                <select
+                  value={diasFiltro}
+                  onChange={(e) => {
+                    setDiasFiltro(parseInt(e.target.value));
+                    cargarFacturasProximasVencer(parseInt(e.target.value));
+                  }}
+                  className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1 text-text-primary text-sm"
+                >
+                  <option value={15}>15 días</option>
+                  <option value={30}>30 días</option>
+                  <option value={60}>60 días</option>
+                  <option value={90}>90 días</option>
+                </select>
+                <button
+                  onClick={() => setShowFacturasProximasVencer(false)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {facturasProximasVencer ? (
+              <div className="space-y-6">
+                {/* Resumen */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4">
+                    <div className="text-red-400 text-xl font-bold">
+                      {facturasProximasVencer.summary.total_critical || 0}
+                    </div>
+                    <div className="text-text-secondary text-sm">Facturas Críticas</div>
+                  </div>
+                  <div className="bg-orange-900/20 border border-orange-700/50 rounded-lg p-4">
+                    <div className="text-orange-400 text-xl font-bold">
+                      {formatCurrencyAbbreviated(facturasProximasVencer.summary.total_upcoming_amount || 0)}
+                    </div>
+                    <div className="text-text-secondary text-sm">Monto Próximo a Vencer</div>
+                  </div>
+                  <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4">
+                    <div className="text-red-400 text-xl font-bold">
+                      {formatCurrencyAbbreviated(facturasProximasVencer.summary.total_overdue_amount || 0)}
+                    </div>
+                    <div className="text-text-secondary text-sm">Monto Vencido</div>
+                  </div>
+                </div>
+
+                {/* Facturas Vencidas */}
+                {facturasProximasVencer.overdue.count > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-red-400 mb-3 flex items-center gap-2">
+                      <MdWarning className="w-5 h-5" />
+                      Facturas Vencidas ({facturasProximasVencer.overdue.count})
+                    </h3>
+                    <div className="space-y-2">
+                      {facturasProximasVencer.overdue.invoices.map((factura) => (
+                        <div key={factura.id} className="bg-red-900/20 border border-red-700/50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${financialDashboardService.getUrgencyColor(factura.urgency_level)}`}>
+                                {financialDashboardService.getUrgencyText(factura.urgency_level)}
+                              </span>
+                              <div>
+                                <div className="font-medium text-text-primary">{factura.invoice_number}</div>
+                                <div className="text-sm text-text-secondary">{factura.supplier}</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-medium text-text-primary">{formatCurrencyAbbreviated(factura.total_amount)}</div>
+                              <div className="text-sm text-red-400">
+                                Vencida hace {factura.days_overdue} días
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Facturas Próximas a Vencer */}
+                {facturasProximasVencer.upcoming_due.count > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-orange-400 mb-3 flex items-center gap-2">
+                      <MdWarning className="w-5 h-5" />
+                      Próximas a Vencer ({facturasProximasVencer.upcoming_due.count})
+                    </h3>
+                    <div className="space-y-2">
+                      {facturasProximasVencer.upcoming_due.invoices.map((factura) => (
+                        <div key={factura.id} className="bg-orange-900/20 border border-orange-700/50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${financialDashboardService.getUrgencyColor(factura.urgency_level)}`}>
+                                {financialDashboardService.getUrgencyText(factura.urgency_level)}
+                              </span>
+                              <div>
+                                <div className="font-medium text-text-primary">{factura.invoice_number}</div>
+                                <div className="text-sm text-text-secondary">{factura.supplier}</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-medium text-text-primary">{formatCurrencyAbbreviated(factura.total_amount)}</div>
+                              <div className="text-sm text-orange-400">
+                                Vence en {factura.days_until_due} días
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {facturasProximasVencer.overdue.count === 0 && facturasProximasVencer.upcoming_due.count === 0 && (
+                  <div className="text-center py-8">
+                    <div className="text-green-400 text-4xl mb-2">✅</div>
+                    <div className="text-text-primary font-medium">¡Excelente!</div>
+                    <div className="text-text-secondary text-sm">No hay facturas próximas a vencer en los próximos {diasFiltro} días</div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                <div className="text-text-secondary">Cargando facturas próximas a vencer...</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

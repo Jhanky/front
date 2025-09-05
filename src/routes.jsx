@@ -6,8 +6,16 @@ import ContabilidadDashboard from "views/admin/contabilidad/dashboard";
 import Facturas from "views/admin/contabilidad/facturas";
 import CentrosCosto from "views/admin/contabilidad/centros-costo";
 import Proveedores from "views/admin/contabilidad/proveedores";
+import Inicio from "views/admin/inicio/index";
 
 const routesWithComponents = [
+  {
+    name: "Inicio",
+    layout: "/admin",
+    path: "inicio",
+    icon: <MdDashboard className="h-6 w-6" />,
+    component: Inicio
+  },
   {
     name: "Cotizaciones",
     layout: "/admin",

@@ -142,6 +142,21 @@ module.exports = {
       lightPrimary: "#F4F7FE",
       blueSecondary: "#4318FF",
       brandLinear: "#868CFF",
+      // Nuevo tema principal
+      primary: {
+        DEFAULT: "#1A1B1F",
+        bg: "#1A1B1F",
+        card: "#2A2B31",
+      },
+      text: {
+        primary: "#E6E6E6",
+        secondary: "#B0B3B8",
+        disabled: "#8A8D94",
+      },
+      accent: {
+        primary: "#00C875",
+        hover: "#009E5D",
+      },
       gray: {
         50: "#f8f9fa",
         100: "#edf2f7",

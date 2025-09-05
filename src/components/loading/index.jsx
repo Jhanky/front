@@ -3,7 +3,7 @@ import Logo from "components/logo";
 
 const Loading = () => {
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-80 z-50">
+    <div className="fixed inset-0 flex items-center justify-center bg-primary/80 backdrop-blur-sm z-50">
       <div className="relative w-[300px] h-[300px]">
         {/* Logo */}
         <div className="absolute inset-0 flex items-center justify-center">

@@ -10,6 +10,24 @@
 		font-feature-settings: 'kern' !important;
 		-webkit-font-smoothing: antialiased;
 		letter-spacing: -0.5px;
+		background-color: #1A1B1F;
+		color: #E6E6E6;
+	}
+
+	body {
+		background-color: #1A1B1F;
+		color: #E6E6E6;
+	}
+
+	/* Variables CSS personalizadas para el tema */
+	:root {
+		--bg-primary: #1A1B1F;
+		--bg-secondary: #2A2B31;
+		--text-primary: #E6E6E6;
+		--text-secondary: #B0B3B8;
+		--text-disabled: #8A8D94;
+		--accent-primary: #00C875;
+		--accent-hover: #009E5D;
 	}
 }
 

@@ -74,7 +74,7 @@ function ColumnsTable(props) {
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    debugTable: true,
+    
   });
   return (
     <Card extra={"w-full pb-10 p-4 h-full"}>

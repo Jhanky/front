@@ -44,7 +44,7 @@ const FloatingChat = () => {
           <MdChat className="h-6 w-6" />
         </button>
       ) : (
-        <div className="h-[500px] w-[350px] rounded-lg bg-white shadow-xl">
+        <div className="h-[500px] w-[350px] rounded-lg bg-primary-card shadow-xl text-text-primary">
           {/* Header */}
           <div className="flex items-center justify-between rounded-t-lg bg-brand-500 p-4">
             <h3 className="text-lg font-bold text-white">Asistente Virtual</h3>
