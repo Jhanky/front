@@ -4,8 +4,29 @@ import { AuthProvider, useAuth } from "context/AuthContext";
 import AdminLayout from "layouts/admin";
 import AuthLayout from "layouts/auth";
 import Loading from "components/loading";
-import { checkApiConfig } from "config/api";
-import ApiToggle from "components/ApiToggle";
+
+// Componente para redirección por rol
+const RoleBasedRedirect = () => {
+  const { user } = useAuth();
+  
+  if (!user) {
+    return <Navigate to="/auth/sign-in" replace />;
+  }
+  
+  // Verificar si el usuario es contador (rol 8)
+  const isContador = user?.roles?.some(role => role.id === 8) || 
+                    user?.roles?.some(role => role.id === "8") ||
+                    user?.role_id === 8 ||
+                    user?.role_id === "8" ||
+                    (user?.roles && user.roles.length > 0 && user.roles[0].id === 8) ||
+                    (user?.roles && user.roles.length > 0 && user.roles[0].id === "8");
+  
+  if (isContador) {
+    return <Navigate to="/admin/contabilidad/dashboard" replace />;
+  }
+  
+  return <Navigate to="/admin/inicio" replace />;
+};
 
 // Componente para rutas protegidas
 const ProtectedRoute = ({ children }) => {
@@ -29,9 +50,6 @@ const ProtectedRoute = ({ children }) => {
 
 const App = () => {
   useEffect(() => {
-    // Verificar la configuración de la API al cargar la aplicación
-    checkApiConfig();
-    
     // Aplicar tema oscuro por defecto
     document.documentElement.classList.add('dark');
     document.body.classList.add('dark');
@@ -55,12 +73,10 @@ const App = () => {
         />
         
         {/* Redirecciones por defecto */}
-        <Route path="/" element={<Navigate to="/admin/inicio" replace />} />
-        <Route path="*" element={<Navigate to="/admin/inicio" replace />} />
+        <Route path="/" element={<RoleBasedRedirect />} />
+        <Route path="*" element={<RoleBasedRedirect />} />
       </Routes>
       
-      {/* Toggle de API - Solo visible en desarrollo */}
-      {process.env.NODE_ENV === 'development' && <ApiToggle />}
       </div>
     </AuthProvider>
   );

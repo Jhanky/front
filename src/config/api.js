@@ -1,18 +1,17 @@
 // Configuración de la API
 const getApiBaseUrl = () => {
-  // Primero verificar si hay una URL guardada en localStorage (para cambios dinámicos)
-  const savedUrl = localStorage.getItem('REACT_APP_API_URL');
-  if (savedUrl) {
-    return savedUrl;
-  }
-  
   // Si hay una variable de entorno específica, usarla
   if (process.env.REACT_APP_API_URL) {
     return process.env.REACT_APP_API_URL;
   }
   
-  // Si no hay variable de entorno, usar la URL de desarrollo por defecto
-  return 'http://127.0.0.1:8000';
+  // Si hay configuración en el navegador (para producción)
+  if (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.API_URL) {
+    return window.APP_CONFIG.API_URL;
+  }
+  
+  // URL de producción por defecto
+  return 'https://www.api.energy4cero.com/public';
 };
 
 export const API_CONFIG = {
@@ -31,8 +30,27 @@ export const API_CONFIG = {
     SUPPLIERS: '/api/suppliers',
     COST_CENTERS: '/api/cost-centers',
     PURCHASES: '/api/purchases',
-    ADMIN: '/api/admin'
+    ADMIN: '/api/admin',
+    SIGO: '/api/siigo'
   }
+};
+
+// Configuración de Siigo API
+export const SIGO_CONFIG = {
+  // Credenciales de Siigo API - CONFIGURADAS
+  USERNAME: process.env.REACT_APP_SIGO_USERNAME || 'silvia.p@energy4cero.com',
+  ACCESS_KEY: process.env.REACT_APP_SIGO_ACCESS_KEY || 'NWQzOTI2YmUtMjVmYi00NzZjLTg0YzEtZTI0YjlmZDNlMWY0OlkjZXE2NTJ7c00=',
+  
+  // URLs de Siigo API
+  BASE_URL: 'https://api.siigo.com',
+  AUTH_URL: 'https://api.siigo.com/auth',
+  API_VERSION: 'v1',
+  
+  // Partner ID requerido por Siigo
+  PARTNER_ID: 'enterprise',
+  
+  // Timeout para las peticiones (en milisegundos)
+  TIMEOUT: 30000
 };
 
 // Función para obtener la URL completa de la API
@@ -42,11 +60,36 @@ export const getApiUrl = (endpoint = '') => {
   return `${baseUrl}${endpoint}`;
 };
 
-// Función para cambiar dinámicamente la URL de la API
-export const setApiUrl = (newUrl) => {
-  localStorage.setItem('REACT_APP_API_URL', newUrl);
-  // Recargar la página para aplicar el cambio
-  window.location.reload();
+// Función para obtener headers de autenticación
+export const getAuthHeaders = (token) => {
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+  };
+};
+
+// Función para manejar errores de fetch
+export const handleFetchError = (error, url) => {
+  console.error('Error en petición a:', url);
+  console.error('Error completo:', error);
+  
+  if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+    console.error('Posibles causas:');
+    console.error('1. Problema de CORS - El servidor no permite peticiones desde este dominio');
+    console.error('2. Problema de red - No se puede conectar al servidor');
+    console.error('3. Problema de HTTPS/SSL - Certificado inválido');
+    console.error('4. URL incorrecta - Verificar que la API esté funcionando');
+  }
+  
+  return {
+    success: false,
+    error: error.message,
+    details: 'Error de conexión con el servidor'
+  };
 };
 
 // Función para obtener URLs de hojas técnicas
@@ -54,17 +97,4 @@ export const getTechnicalSheetUrl = (url) => {
   if (!url) return null;
   if (url.startsWith('http')) return url;
   return `${API_CONFIG.BASE_URL}${url}`;
-};
-
-// Función para verificar la configuración de la API
-export const checkApiConfig = () => {
-
-};
-
-// URLs predefinidas para cambiar rápidamente
-export const API_URLS = {
-  DEVELOPMENT: 'http://127.0.0.1:8000',
-  PRODUCTION: 'https://www.api.energy4cero.com/public',
-  LOCALHOST: 'http://localhost:3000',
-  LOCALHOST_8000: 'http://localhost:8000'
 };

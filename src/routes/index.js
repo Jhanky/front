@@ -20,6 +20,8 @@ const getRoutesByRole = (userRole) => {
       return [...comercialRoutes, ...commonRoutes];
     case 'tecnico':
       return [...tecnicoRoutes, ...commonRoutes];
+    case 'contador':
+      return [...adminRoutes, ...commonRoutes];
     default:
       return commonRoutes;
   }

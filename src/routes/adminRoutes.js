@@ -1,5 +1,5 @@
 import React from "react";
-import { MdDescription, MdPeople, MdDevices, MdBusiness, MdAccountBalance, MdReceipt, MdSolarPower, MdBatteryChargingFull, MdStore, MdDashboard, MdBugReport } from "react-icons/md";
+import { MdDescription, MdPeople, MdDevices, MdBusiness, MdAccountBalance, MdReceipt, MdSolarPower, MdBatteryChargingFull, MdStore, MdDashboard, MdBugReport, MdSync } from "react-icons/md";
 import Inicio from "views/admin/inicio/index";
 
 export const adminRoutes = [
@@ -61,6 +61,13 @@ export const adminRoutes = [
             layout: "/admin",
             path: "baterias",
             icon: <MdBatteryChargingFull className="h-5 w-5" />,
+            allowedRoles: ["administrador"]
+          },
+          {
+            name: "Siigo",
+            layout: "/admin",
+            path: "siigo",
+            icon: <MdSync className="h-5 w-5" />,
             allowedRoles: ["administrador"]
           }
         ]
@@ -133,35 +140,35 @@ export const adminRoutes = [
     icon: <MdAccountBalance className="h-6 w-6" />,
     layout: "/admin",
     path: "contabilidad",
-    allowedRoles: ["administrador"],
+    allowedRoles: ["administrador", "contador"],
     submenu: [
       {
         name: "Dashboard",
         layout: "/admin",
         path: "contabilidad/dashboard",
         icon: <MdAccountBalance className="h-5 w-5" />,
-        allowedRoles: ["administrador"]
+        allowedRoles: ["administrador", "contador"]
       },
       {
         name: "Facturas",
         layout: "/admin",
         path: "contabilidad/facturas",
         icon: <MdReceipt className="h-5 w-5" />,
-        allowedRoles: ["administrador"]
+        allowedRoles: ["administrador", "contador"]
       },
       {
         name: "Centros de Costo",
         layout: "/admin",
         path: "contabilidad/centros-costo",
         icon: <MdAccountBalance className="h-5 w-5" />,
-        allowedRoles: ["administrador"]
+        allowedRoles: ["administrador", "contador"]
       },
       {
         name: "Proveedores",
         layout: "/admin",
         path: "contabilidad/proveedores",
         icon: <MdStore className="h-5 w-5" />,
-        allowedRoles: ["administrador"]
+        allowedRoles: ["administrador", "contador"]
       }
     ]
   },

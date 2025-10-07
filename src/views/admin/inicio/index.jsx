@@ -14,71 +14,15 @@ import {
   MdRefresh
 } from "react-icons/md";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { useAuth } from "context/AuthContext";
+import { dashboardService } from "services/dashboardService";
+import Loading from "components/loading";
 import './Inicio.css';
 
-// Datos de ejemplo de plantas fotovoltaicas
-const plantasData = [
-  {
-    id: 1,
-    nombre: "Planta Solar Cartagena",
-    ubicacion: "Cartagena, Bolívar",
-    coordenadas: [10.3932, -75.4792],
-    capacidad: 8.0, // kWp
-    potenciaActual: 6.2, // kW
-    generacionHoy: 32.8, // kWh
-    estado: "activa",
-    eficiencia: 88,
-    ultimaActualizacion: "2024-01-15T10:30:00Z"
-  },
-  {
-    id: 2,
-    nombre: "Planta Solar Barranquilla",
-    ubicacion: "Barranquilla, Atlántico",
-    coordenadas: [10.9685, -74.7813],
-    capacidad: 6.5, // kWp
-    potenciaActual: 5.8, // kW
-    generacionHoy: 28.5, // kWh
-    estado: "activa",
-    eficiencia: 92,
-    ultimaActualizacion: "2024-01-15T10:30:00Z"
-  },
-  {
-    id: 3,
-    nombre: "Planta Solar Santa Marta",
-    ubicacion: "Santa Marta, Magdalena",
-    coordenadas: [11.2404, -74.2110],
-    capacidad: 5.5, // kWp
-    potenciaActual: 0.0, // kW
-    generacionHoy: 0.0, // kWh
-    estado: "mantenimiento",
-    eficiencia: 0,
-    ultimaActualizacion: "2024-01-15T08:15:00Z"
-  },
-  {
-    id: 4,
-    nombre: "Planta Solar Valledupar",
-    ubicacion: "Valledupar, Cesar",
-    coordenadas: [10.4631, -73.2532],
-    capacidad: 4.0, // kWp
-    potenciaActual: 3.5, // kW
-    generacionHoy: 18.2, // kWh
-    estado: "activa",
-    eficiencia: 85,
-    ultimaActualizacion: "2024-01-15T10:30:00Z"
-  },
-  {
-    id: 5,
-    nombre: "Planta Solar Riohacha",
-    ubicacion: "Riohacha, La Guajira",
-    coordenadas: [11.5444, -72.9072],
-    capacidad: 7.0, // kWp
-    potenciaActual: 6.5, // kW
-    generacionHoy: 35.1, // kWh
-    estado: "activa",
-    eficiencia: 95,
-    ultimaActualizacion: "2024-01-15T10:30:00Z"
-  }
-];
+// El endpoint del dashboard ya viene con el formato correcto, solo necesitamos formatear ligeramente
+const mapearProyectoAPlanta = (proyecto) => {
+  return dashboardService.formatProyectoForFrontend(proyecto);
+};
 
 // Datos para gráficos
 const datosGeneracion = [
@@ -92,30 +36,102 @@ const datosGeneracion = [
   { hora: "20:00", generacion: 0 }
 ];
 
-const datosEficiencia = [
-  { name: "Activas", value: 4, color: "var(--accent-primary)" },
-  { name: "Mantenimiento", value: 1, color: "#F59E0B" }
-];
+// Los datos de eficiencia se calcularán dinámicamente en el componente
 
 const Inicio = () => {
+  const { user } = useAuth();
   const [selectedPlanta, setSelectedPlanta] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [plantasData, setPlantasData] = useState([]);
+  const [estadisticas, setEstadisticas] = useState(null);
+  const [error, setError] = useState(null);
 
-  // Calcular métricas totales
+  // Función para cargar estadísticas
+  const cargarEstadisticas = async () => {
+    try {
+      const response = await dashboardService.getEstadisticas(user?.token);
+      
+      if (response.success && response.data) {
+        setEstadisticas(response.data);
+      }
+    } catch (error) {
+      console.error('Error al cargar estadísticas:', error);
+      // No mostramos error para estadísticas, es opcional
+    }
+  };
+
+  // Función para cargar proyectos
+  const cargarProyectos = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const response = await dashboardService.getProyectos(user?.token);
+      
+      if (response.success && response.data) {
+        // El endpoint del dashboard ya viene con el formato correcto
+        const plantasMapeadas = response.data.map(mapearProyectoAPlanta);
+        setPlantasData(plantasMapeadas);
+      } else {
+        setError('No se pudieron cargar los proyectos');
+        setPlantasData([]);
+      }
+    } catch (error) {
+      console.error('Error al cargar proyectos:', error);
+      setError('Error al cargar los proyectos: ' + error.message);
+      setPlantasData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Función para cargar todos los datos
+  const cargarDatos = async () => {
+    await Promise.all([
+      cargarProyectos(),
+      cargarEstadisticas()
+    ]);
+  };
+
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    if (user?.token) {
+      cargarDatos();
+    }
+  }, [user?.token]);
+
+  // Calcular métricas totales (usar estadísticas del dashboard si están disponibles)
   const metricas = {
     generacionHoy: plantasData.reduce((sum, planta) => sum + planta.generacionHoy, 0),
     potenciaActual: plantasData.reduce((sum, planta) => sum + planta.potenciaActual, 0),
-    plantasActivas: plantasData.filter(planta => planta.estado === "activa").length,
-    capacidadTotal: plantasData.reduce((sum, planta) => sum + planta.capacidad, 0),
-    eficienciaPromedio: Math.round(plantasData.filter(planta => planta.estado === "activa").reduce((sum, planta) => sum + planta.eficiencia, 0) / plantasData.filter(planta => planta.estado === "activa").length)
+    plantasActivas: estadisticas?.active_projects || plantasData.filter(planta => planta.estado === "activa").length,
+    capacidadTotal: estadisticas?.active_capacity_kwp || plantasData.reduce((sum, planta) => sum + planta.capacidad, 0),
+    eficienciaPromedio: estadisticas?.efficiency_average || (plantasData.filter(planta => planta.estado === "activa").length > 0 
+      ? Math.round(plantasData.filter(planta => planta.estado === "activa").reduce((sum, planta) => sum + planta.eficiencia, 0) / plantasData.filter(planta => planta.estado === "activa").length)
+      : 0)
   };
+
+  // Calcular datos de eficiencia dinámicamente
+  const datosEficiencia = [
+    { 
+      name: "Activas", 
+      value: estadisticas?.active_projects || plantasData.filter(planta => planta.estado === "activa").length, 
+      color: "var(--accent-primary)" 
+    },
+    { 
+      name: "Completadas", 
+      value: estadisticas?.completed_projects || plantasData.filter(planta => planta.estado === "completada").length, 
+      color: "#10B981" 
+    }
+  ];
 
   // Icono personalizado para los marcadores usando la imagen de paneles solares
   const createCustomIcon = (estado) => {
     const opacity = estado === "activa" ? 1 : 0.6;
+    const filter = estado === "activa" ? 'none' : 'grayscale(100%)';
     return L.divIcon({
-      html: `<div style="background-image: url('/img/Paneles-solares.png'); background-size: contain; background-repeat: no-repeat; background-position: center; width: 40px; height: 40px; opacity: ${opacity}; filter: ${estado === 'activa' ? 'none' : 'grayscale(100%)'};"></div>`,
+      html: `<div style="background-image: url('/img/Paneles-solares.png'); background-size: contain; background-repeat: no-repeat; background-position: center; width: 40px; height: 40px; opacity: ${opacity}; filter: ${filter};"></div>`,
       className: "custom-marker",
       iconSize: [40, 40],
       iconAnchor: [20, 40]
@@ -128,16 +144,41 @@ const Inicio = () => {
   };
 
   const handleRefresh = () => {
-    setIsLoading(true);
-    // Simular actualización de datos
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+    cargarDatos();
   };
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString('es-CL');
   };
+
+  // Mostrar loading si está cargando
+  if (isLoading && plantasData.length === 0) {
+    return (
+      <div className="inicio-container">
+        <div className="flex items-center justify-center h-64">
+          <Loading />
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar error si hay un error
+  if (error) {
+    return (
+      <div className="inicio-container">
+        <div className="flex flex-col items-center justify-center h-64">
+          <div className="text-red-500 text-lg font-medium mb-4">Error al cargar los datos</div>
+          <div className="text-gray-500 text-sm mb-4">{error}</div>
+          <button 
+            onClick={handleRefresh}
+            className="px-4 py-2 bg-accent-primary text-white rounded-lg hover:bg-accent-hover transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="inicio-container">
@@ -158,7 +199,7 @@ const Inicio = () => {
           </button>
         </div>
         <p className="header-subtitle">
-          Monitoreo en tiempo real de {plantasData.length} plantas solares en la Costa Caribe Colombiana
+          Monitoreo en tiempo real de {plantasData.length} proyectos solares en la Costa Caribe Colombiana
         </p>
       </div>
 
@@ -212,20 +253,20 @@ const Inicio = () => {
           <div className="mapa-header">
             <h2 className="mapa-title">
               <MdLocationOn className="mapa-icon" />
-              Ubicación de Plantas
+              Ubicación de Proyectos
             </h2>
                          <div className="mapa-leyenda">
                <div className="leyenda-item">
                  <div className="leyenda-icon activa">
-                   <img src="/img/Paneles-solares.png" alt="Planta Activa" />
+                   <img src="/img/Paneles-solares.png" alt="Proyecto Activo" />
                  </div>
-                 <span>Planta Activa</span>
+                 <span>Proyecto Activo</span>
                </div>
                <div className="leyenda-item">
-                 <div className="leyenda-icon mantenimiento">
-                   <img src="/img/Paneles-solares.png" alt="Planta en Mantenimiento" />
+                 <div className="leyenda-icon completada">
+                   <img src="/img/Paneles-solares.png" alt="Proyecto Completado" />
                  </div>
-                 <span>Planta en Mantenimiento</span>
+                 <span>Proyecto Completado</span>
                </div>
              </div>
           </div>
@@ -286,7 +327,7 @@ const Inicio = () => {
           </div>
 
           <div className="grafico-card">
-            <h3 className="grafico-title">Estado de Plantas</h3>
+            <h3 className="grafico-title">Estado de Proyectos</h3>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
@@ -317,10 +358,10 @@ const Inicio = () => {
         </div>
       </div>
 
-      {/* Modal de detalles */}
+      {/* Modal único de detalles */}
       {isModalOpen && selectedPlanta && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
                 <MdInfo className="modal-icon" />
@@ -335,36 +376,100 @@ const Inicio = () => {
             </div>
             
             <div className="modal-body">
+              {/* Imagen de portada */}
+              <div className="modal-image-container">
+                <img 
+                  src={selectedPlanta.imagenPortada} 
+                  alt={`Portada de ${selectedPlanta.nombre}`}
+                  className="modal-image"
+                  onError={(e) => {
+                    e.target.src = '/img/Paneles-solares.png';
+                  }}
+                />
+                <div className="modal-image-overlay">
+                  <div className="modal-image-info">
+                    <h3 className="modal-image-title">{selectedPlanta.nombre}</h3>
+                    <p className="modal-image-location">{selectedPlanta.ubicacion}</p>
+                    <div className="modal-image-status">
+                      <span className={`status-badge status-${selectedPlanta.estado}`}>
+                        {selectedPlanta.estado === "activa" ? "Activo" : 
+                         selectedPlanta.estado === "completada" ? "Completado" : 
+                         selectedPlanta.estado === "pausada" ? "Pausado" : 
+                         selectedPlanta.estado === "cancelada" ? "Cancelado" : 
+                         selectedPlanta.estado === "planificacion" ? "En Planificación" : 
+                         "Desconocido"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información detallada */}
               <div className="planta-info">
-                <div className="info-row">
-                  <span className="info-label">Ubicación:</span>
-                  <span className="info-value">{selectedPlanta.ubicacion}</span>
+                <div className="info-section">
+                  <h4 className="info-section-title">Información Técnica</h4>
+                  <div className="info-grid">
+                    <div className="info-row">
+                      <span className="info-label">Capacidad:</span>
+                      <span className="info-value">{selectedPlanta.capacidad} kWp</span>
+                    </div>
+                    <div className="info-row">
+                      <span className="info-label">Potencia Actual:</span>
+                      <span className="info-value">{selectedPlanta.potenciaActual} kW</span>
+                    </div>
+                    <div className="info-row">
+                      <span className="info-label">Generación Hoy:</span>
+                      <span className="info-value">{selectedPlanta.generacionHoy} kWh</span>
+                    </div>
+                    <div className="info-row">
+                      <span className="info-label">Eficiencia:</span>
+                      <span className="info-value">{selectedPlanta.eficiencia}%</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="info-row">
-                  <span className="info-label">Estado:</span>
-                  <span className={`info-value estado-${selectedPlanta.estado}`}>
-                    {selectedPlanta.estado === "activa" ? "Activa" : "En Mantenimiento"}
-                  </span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Capacidad:</span>
-                  <span className="info-value">{selectedPlanta.capacidad} kWp</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Potencia Actual:</span>
-                  <span className="info-value">{selectedPlanta.potenciaActual} kW</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Generación Hoy:</span>
-                  <span className="info-value">{selectedPlanta.generacionHoy} kWh</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Eficiencia:</span>
-                  <span className="info-value">{selectedPlanta.eficiencia}%</span>
-                </div>
-                <div className="info-row">
-                  <span className="info-label">Última Actualización:</span>
-                  <span className="info-value">{formatDate(selectedPlanta.ultimaActualizacion)}</span>
+
+                {selectedPlanta.cliente && (
+                  <div className="info-section">
+                    <h4 className="info-section-title">Información del Cliente</h4>
+                    <div className="info-grid">
+                      <div className="info-row">
+                        <span className="info-label">Cliente:</span>
+                        <span className="info-value">{selectedPlanta.cliente.nombre}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Tipo Cliente:</span>
+                        <span className="info-value">{selectedPlanta.cliente.tipo}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">NIC:</span>
+                        <span className="info-value">{selectedPlanta.cliente.nic}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Consumo Mensual:</span>
+                        <span className="info-value">{selectedPlanta.cliente.consumo_mensual_kwh} kWh</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="info-section">
+                  <h4 className="info-section-title">Información del Proyecto</h4>
+                  <div className="info-grid">
+                    <div className="info-row">
+                      <span className="info-label">Ubicación:</span>
+                      <span className="info-value">{selectedPlanta.ubicacion}</span>
+                    </div>
+                    {selectedPlanta.gerenteProyecto && (
+                      <div className="info-row">
+                        <span className="info-label">Gerente de Proyecto:</span>
+                        <span className="info-value">{selectedPlanta.gerenteProyecto}</span>
+                      </div>
+                    )}
+                    <div className="info-row">
+                      <span className="info-label">Última Actualización:</span>
+                      <span className="info-value">{formatDate(selectedPlanta.ultimaActualizacion)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

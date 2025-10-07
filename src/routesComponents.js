@@ -11,6 +11,7 @@ import DetalleCotizacion from "views/admin/cotizaciones/[id]";
 import Paneles from "views/admin/paneles";
 import Inversores from "views/admin/inversores";
 import Baterias from "views/admin/baterias";
+import Siigo from "views/admin/siigo";
 import Usuarios from "views/admin/usuarios";
 import AgenteIA from "views/admin/agente-ia";
 import ContabilidadDashboard from "views/admin/contabilidad/dashboard";
@@ -34,6 +35,7 @@ export const routeComponents = {
   "paneles": <Paneles />,
   "inversores": <Inversores />,
   "baterias": <Baterias />,
+  "siigo": <Siigo />,
   "usuarios": <Usuarios />,
   "agente-ia": <AgenteIA />,
   "unauthorized": <Unauthorized />,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Card from "components/card";
-import { MdAdd, MdEdit, MdDelete, MdVisibility, MdSearch, MdFilterList } from "react-icons/md";
+import { MdAdd, MdEdit, MdDelete, MdVisibility, MdSearch, MdFilterList, MdBarChart, MdReceipt } from "react-icons/md";
 import Modal from "components/modal";
 import { useAuth } from "context/AuthContext";
 import { getApiUrl, API_CONFIG } from "config/api";
@@ -16,32 +16,32 @@ const Proveedores = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isStatisticsModalOpen, setIsStatisticsModalOpen] = useState(false);
+  const [isInvoicesModalOpen, setIsInvoicesModalOpen] = useState(false);
   const [selectedProveedor, setSelectedProveedor] = useState(null);
   
   // Estados para filtros y búsqueda
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [perPage, setPerPage] = useState(15);
+  const [totalItems, setTotalItems] = useState(0);
+  
+  // Estados para estadísticas
+  const [statistics, setStatistics] = useState(null);
+  const [statisticsLoading, setStatisticsLoading] = useState(false);
+  
+  // Estados para facturas del proveedor
+  const [providerInvoices, setProviderInvoices] = useState([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
-    name: "",
-    tax_id: "",
-    address: "",
-    phone: "",
-    email: "",
-    contact_name: "",
-    contact_phone: "",
-    contact_email: "",
-    city: "",
-    department: "",
-    country: "Colombia",
-    postal_code: "",
-    description: "",
-    website: "",
-    status: "activo",
-    category: "general",
-    credit_limit: "",
-    payment_terms: "",
-    notes: ""
+    provider_name: "",
+    provider_tax_id: ""
   });
   const [formError, setFormError] = useState("");
   const [formLoading, setFormLoading] = useState(false);
@@ -50,7 +50,7 @@ const Proveedores = () => {
 
   useEffect(() => {
     fetchProveedores();
-  }, []);
+  }, [currentPage, perPage]);
 
   // Efecto para filtrar proveedores cuando cambien los filtros
   useEffect(() => {
@@ -64,8 +64,8 @@ const Proveedores = () => {
     // Filtro por búsqueda
     if (searchTerm) {
       filtered = filtered.filter(proveedor =>
-        proveedor.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        proveedor.tax_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        proveedor.provider_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        proveedor.provider_tax_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         proveedor.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         proveedor.city?.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -97,12 +97,92 @@ const Proveedores = () => {
     setSearchTerm("");
     setStatusFilter("");
     setCategoryFilter("");
+    setCurrentPage(1);
   };
 
-  const fetchProveedores = async () => {
+  // Función para buscar proveedores usando el endpoint de búsqueda
+  const handleSearchSubmit = async (e) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      try {
+        setLoading(true);
+        setError("");
+        
+        const params = new URLSearchParams({
+          q: searchTerm,
+          page: 1,
+          per_page: perPage
+        });
+
+        const response = await fetch(getApiUrl(`/api/providers/search?${params}`), {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${user.token}`,
+            "Content-Type": "application/json"
+          }
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Error de respuesta:', errorText);
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log('Datos de búsqueda recibidos:', data);
+        
+        if (data.success && data.data) {
+          // Mapear los datos de la misma manera que en fetchProveedores
+          const mappedProveedores = data.data.data.map(proveedor => ({
+            provider_id: proveedor.provider_id,
+            provider_name: proveedor.provider_name,
+            provider_tax_id: proveedor.NIT,
+            address: proveedor.address,
+            phone: proveedor.phone,
+            email: proveedor.email,
+            contact_name: proveedor.contact_name,
+            contact_phone: proveedor.contact_phone,
+            contact_email: proveedor.contact_email,
+            city: proveedor.city,
+            department: proveedor.department,
+            country: proveedor.country,
+            postal_code: proveedor.postal_code,
+            description: proveedor.description,
+            website: proveedor.website,
+            status: proveedor.status,
+            category: proveedor.category,
+            credit_limit: proveedor.credit_limit,
+            payment_terms: proveedor.payment_terms,
+            notes: proveedor.notes,
+            invoices_count: proveedor.invoices_count || 0,
+            total_invoiced: proveedor.total_invoiced || "0.00",
+            created_at: proveedor.created_at,
+            updated_at: proveedor.updated_at
+          }));
+          
+          setProveedores(mappedProveedores);
+          setTotalPages(data.data.last_page || 1);
+          setTotalItems(data.data.total || 0);
+          setCurrentPage(1);
+        }
+      } catch (error) {
+        console.error('Error en la búsqueda:', error);
+        setError(`Error en la búsqueda: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      fetchProveedores();
+    }
+  };
+
+  // Función para obtener estadísticas del servidor
+  const fetchStatistics = async () => {
     try {
-      setLoading(true);
-      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.SUPPLIERS), {
+      setStatisticsLoading(true);
+      setError("");
+      
+      const response = await fetch(getApiUrl('/api/providers/statistics'), {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${user.token}`,
@@ -111,30 +191,165 @@ const Proveedores = () => {
       });
 
       if (!response.ok) {
-        throw new Error("Error al cargar los proveedores");
+        const errorText = await response.text();
+        console.error('Error de respuesta:', errorText);
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Estadísticas recibidas:', data);
+      
+      if (data.success && data.data) {
+        setStatistics(data.data);
+      } else {
+        throw new Error(data.message || "Error al cargar las estadísticas");
+      }
+    } catch (error) {
+      console.error('Error al cargar estadísticas:', error);
+      setError(`Error al cargar estadísticas: ${error.message}`);
+    } finally {
+      setStatisticsLoading(false);
+    }
+  };
+
+  // Función para obtener facturas de un proveedor
+  const fetchProviderInvoices = async (providerId) => {
+    try {
+      setInvoicesLoading(true);
+      setError("");
+      
+      const response = await fetch(getApiUrl(`/api/providers/${providerId}/invoices`), {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${user.token}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error de respuesta:', errorText);
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Facturas recibidas:', data);
+      
+      if (data.success && data.data) {
+        setProviderInvoices(data.data.invoices.data || []);
+      } else {
+        throw new Error(data.message || "Error al cargar las facturas");
+      }
+    } catch (error) {
+      console.error('Error al cargar facturas:', error);
+      setError(`Error al cargar facturas: ${error.message}`);
+    } finally {
+      setInvoicesLoading(false);
+    }
+  };
+
+  const fetchProveedores = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      
+      const params = new URLSearchParams({
+        page: currentPage,
+        per_page: perPage,
+        ...(searchTerm && { search: searchTerm }),
+        ...(statusFilter && { status: statusFilter }),
+        ...(categoryFilter && { category: categoryFilter })
+      });
+
+      const url = getApiUrl(`/api/providers?${params}`);
+      console.log('URL de la API:', url);
+      console.log('Token de usuario:', user.token ? 'Presente' : 'Ausente');
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${user.token}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      console.log('Status de respuesta:', response.status);
+      console.log('Headers de respuesta:', response.headers);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error de respuesta:', errorText);
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
       console.log('Datos recibidos de la API:', data);
       
-      // La API devuelve: { success: true, data: { current_page: 1, data: [...] } }
+      // Manejar diferentes estructuras de respuesta
       let proveedoresData = [];
-      if (data.success && data.data && data.data.data) {
-        proveedoresData = data.data.data; // Acceder a data.data.data
+      
+      if (data.success && data.data) {
+        if (data.data.data && Array.isArray(data.data.data)) {
+          // Nueva estructura con paginación
+          proveedoresData = data.data.data;
+          setTotalPages(data.data.last_page || 1);
+          setTotalItems(data.data.total || 0);
+          setCurrentPage(data.data.current_page || 1);
+        } else if (Array.isArray(data.data)) {
+          // Estructura directa con array
+          proveedoresData = data.data;
+          setTotalPages(1);
+          setTotalItems(data.data.length);
+          setCurrentPage(1);
+        }
       } else if (data.data && Array.isArray(data.data)) {
-        proveedoresData = data.data; // Fallback para estructura directa
-      } else if (data.suppliers && Array.isArray(data.suppliers)) {
-        proveedoresData = data.suppliers; // Fallback para estructura suppliers
+        // Estructura directa con array
+        proveedoresData = data.data;
+        setTotalPages(1);
+        setTotalItems(data.data.length);
+        setCurrentPage(1);
       } else if (Array.isArray(data)) {
-        proveedoresData = data; // Fallback para array directo
+        // Array directo
+        proveedoresData = data;
+        setTotalPages(1);
+        setTotalItems(data.length);
+        setCurrentPage(1);
+      } else {
+        throw new Error(data.message || "Estructura de datos no reconocida");
       }
-      
-      console.log('Proveedores procesados:', proveedoresData);
-      
-      setProveedores(proveedoresData);
+
+      // Mapear los datos para usar la estructura esperada
+      const mappedProveedores = proveedoresData.map(proveedor => ({
+        provider_id: proveedor.supplier_id || proveedor.provider_id,
+        provider_name: proveedor.name || proveedor.provider_name,
+        provider_tax_id: proveedor.tax_id || proveedor.provider_tax_id || proveedor.NIT,
+        address: proveedor.address,
+        phone: proveedor.phone,
+        email: proveedor.email,
+        contact_name: proveedor.contact_name,
+        contact_phone: proveedor.contact_phone,
+        contact_email: proveedor.contact_email,
+        city: proveedor.city,
+        department: proveedor.department,
+        country: proveedor.country,
+        postal_code: proveedor.postal_code,
+        description: proveedor.description,
+        website: proveedor.website,
+        status: proveedor.status,
+        category: proveedor.category,
+        credit_limit: proveedor.credit_limit,
+        payment_terms: proveedor.payment_terms,
+        notes: proveedor.notes,
+        invoices_count: proveedor.invoices_count || 0,
+        total_invoiced: proveedor.total_invoiced || "0.00",
+        created_at: proveedor.created_at,
+        updated_at: proveedor.updated_at
+      }));
+
+      setProveedores(mappedProveedores);
     } catch (error) {
       console.error('Error al cargar proveedores:', error);
-      setError(error.message);
+      setError(`Error al cargar los proveedores: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -205,25 +420,8 @@ const Proveedores = () => {
 
   const handleCreate = () => {
     setFormData({
-      name: "",
-      tax_id: "",
-      address: "",
-      phone: "",
-      email: "",
-      contact_name: "",
-      contact_phone: "",
-      contact_email: "",
-      city: "",
-      department: "",
-      country: "Colombia",
-      postal_code: "",
-      description: "",
-      website: "",
-      status: "activo",
-      category: "general",
-      credit_limit: "",
-      payment_terms: "",
-      notes: ""
+      provider_name: "",
+      provider_tax_id: ""
     });
     setFormError("");
     setIsEditMode(false);
@@ -233,25 +431,8 @@ const Proveedores = () => {
   const handleEdit = (proveedor) => {
     setSelectedProveedor(proveedor);
     setFormData({
-      name: proveedor.name || "",
-      tax_id: proveedor.tax_id || "",
-      address: proveedor.address || "",
-      phone: proveedor.phone || "",
-      email: proveedor.email || "",
-      contact_name: proveedor.contact_name || "",
-      contact_phone: proveedor.contact_phone || "",
-      contact_email: proveedor.contact_email || "",
-      city: proveedor.city || "",
-      department: proveedor.department || "",
-      country: proveedor.country || "Colombia",
-      postal_code: proveedor.postal_code || "",
-      description: proveedor.description || "",
-      website: proveedor.website || "",
-      status: proveedor.status || "activo",
-      category: proveedor.category || "general",
-      credit_limit: proveedor.credit_limit || "",
-      payment_terms: proveedor.payment_terms || "",
-      notes: proveedor.notes || ""
+      provider_name: proveedor.provider_name || "",
+      provider_tax_id: proveedor.provider_tax_id || ""
     });
     setFormError("");
     setIsEditMode(true);
@@ -268,6 +449,17 @@ const Proveedores = () => {
     setIsViewModalOpen(true);
   };
 
+  const handleStatistics = () => {
+    fetchStatistics();
+    setIsStatisticsModalOpen(true);
+  };
+
+  const handleViewInvoices = (proveedor) => {
+    setSelectedProveedor(proveedor);
+    fetchProviderInvoices(proveedor.provider_id);
+    setIsInvoicesModalOpen(true);
+  };
+
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -282,14 +474,14 @@ const Proveedores = () => {
     setFormLoading(true);
 
     try {
-      // Validaciones básicas - solo name y tax_id son obligatorios
-      if (!formData.name || !formData.tax_id) {
+      // Validaciones básicas - solo provider_name y provider_tax_id son obligatorios
+      if (!formData.provider_name || !formData.provider_tax_id) {
         throw new Error("Por favor complete los campos obligatorios: Nombre del Proveedor y NIT");
       }
 
       const url = isEditMode 
-        ? getApiUrl(`${API_CONFIG.ENDPOINTS.SUPPLIERS}/${selectedProveedor.supplier_id}`)
-        : getApiUrl(API_CONFIG.ENDPOINTS.SUPPLIERS);
+        ? getApiUrl(`/api/providers/${selectedProveedor.provider_id}`)
+        : getApiUrl('/api/providers');
       
       const method = isEditMode ? "PUT" : "POST";
 
@@ -307,7 +499,12 @@ const Proveedores = () => {
           
           // Solo incluir campos que han cambiado y no estén vacíos
           if (currentValue !== originalValue && currentValue !== "" && currentValue !== null && currentValue !== undefined) {
-            requestBody[key] = currentValue;
+            // Mapear el campo NIT correctamente
+            if (key === 'provider_tax_id') {
+              requestBody['NIT'] = currentValue;
+            } else {
+              requestBody[key] = currentValue;
+            }
             console.log(`Campo "${key}" cambiado:`, { original: originalValue, nuevo: currentValue });
           }
         });
@@ -323,7 +520,12 @@ const Proveedores = () => {
         Object.keys(formData).forEach(key => {
           const value = formData[key];
           if (value !== "" && value !== null && value !== undefined) {
-            requestBody[key] = value;
+            // Mapear el campo NIT correctamente
+            if (key === 'provider_tax_id') {
+              requestBody['NIT'] = value;
+            } else {
+              requestBody[key] = value;
+            }
           }
         });
         
@@ -366,11 +568,8 @@ const Proveedores = () => {
       
       // Verificar si los datos vienen en un wrapper
       let proveedorData = null;
-      if (responseData.supplier) {
-        proveedorData = responseData.supplier; // Para creación/actualización
-        console.log('Datos extraídos de responseData.supplier');
-      } else if (responseData.data) {
-        proveedorData = responseData.data; // Fallback
+      if (responseData.data) {
+        proveedorData = responseData.data; // Para creación/actualización
         console.log('Datos extraídos de responseData.data');
       } else {
         proveedorData = responseData; // Fallback directo
@@ -381,12 +580,12 @@ const Proveedores = () => {
       // Actualización dinámica del estado local
       if (isEditMode) {
         console.log('Estado actual antes de actualizar:', proveedores);
-        console.log('Buscando proveedor con ID:', selectedProveedor.supplier_id);
+        console.log('Buscando proveedor con ID:', selectedProveedor.provider_id);
         
         // Actualizar proveedor existente - usar directamente los datos de la API
         setProveedores(prev => {
           const updated = prev.map(proveedor => {
-            if (proveedor.supplier_id === selectedProveedor.supplier_id) {
+            if (proveedor.provider_id === selectedProveedor.provider_id) {
               console.log('Proveedor encontrado para actualizar:', proveedor);
               // Usar directamente los datos completos de la API
               console.log('Proveedor actualizado con datos de la API:', proveedorData);
@@ -408,8 +607,8 @@ const Proveedores = () => {
 
       // Mostrar mensaje de éxito
       const successMessage = isEditMode 
-        ? `Proveedor "${formData.name}" actualizado exitosamente`
-        : `Proveedor "${formData.name}" creado exitosamente`;
+        ? `Proveedor "${formData.provider_name}" actualizado exitosamente`
+        : `Proveedor "${formData.provider_name}" creado exitosamente`;
       showNotification(successMessage, "success");
 
       // Cerrar modal
@@ -431,7 +630,7 @@ const Proveedores = () => {
   const handleDeleteConfirm = async () => {
     try {
       setFormLoading(true);
-      const response = await fetch(getApiUrl(`${API_CONFIG.ENDPOINTS.SUPPLIERS}/${selectedProveedor.supplier_id}`), {
+      const response = await fetch(getApiUrl(`/api/providers/${selectedProveedor.provider_id}`), {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${user.token}`,
@@ -445,10 +644,10 @@ const Proveedores = () => {
       }
 
       // Actualización dinámica del estado local
-      setProveedores(prev => prev.filter(proveedor => proveedor.supplier_id !== selectedProveedor.supplier_id));
+      setProveedores(prev => prev.filter(proveedor => proveedor.provider_id !== selectedProveedor.provider_id));
 
       // Mostrar mensaje de éxito
-      showNotification(`Proveedor "${selectedProveedor.name}" eliminado exitosamente`, "success");
+      showNotification(`Proveedor "${selectedProveedor.provider_name}" eliminado exitosamente`, "success");
 
       // Cerrar modal
       setIsDeleteModalOpen(false);
@@ -509,20 +708,29 @@ const Proveedores = () => {
             <h1 className="text-2xl font-bold text-text-primary">
               Proveedores
             </h1>
-            <button
-              onClick={handleCreate}
-              className="flex items-center gap-2 rounded-lg bg-accent-primary px-6 py-2.5 text-white hover:bg-accent-hover transition-colors"
-            >
-              <MdAdd className="h-5 w-5" />
-              Nuevo Proveedor
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleStatistics}
+                className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2.5 text-white hover:bg-blue-600 transition-colors"
+              >
+                <MdBarChart className="h-5 w-5" />
+                Estadísticas
+              </button>
+              <button
+                onClick={handleCreate}
+                className="flex items-center gap-2 rounded-lg bg-accent-primary px-6 py-2.5 text-white hover:bg-accent-hover transition-colors"
+              >
+                <MdAdd className="h-5 w-5" />
+                Nuevo Proveedor
+              </button>
+            </div>
           </div>
 
                      {/* Filtros y Búsqueda */}
            <div className="mt-6 space-y-4">
              {/* Barra de búsqueda */}
              <div className="mb-4">
-               <form onSubmit={(e) => { e.preventDefault(); }} className="flex gap-2">
+               <form onSubmit={handleSearchSubmit} className="flex gap-2">
                  <div className="relative flex-1">
                    <input
                      type="text"
@@ -635,31 +843,27 @@ const Proveedores = () => {
                 <tr className="border-b border-text-disabled/20 bg-primary">
                   <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Nombre</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">NIT</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Categoría</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Contacto</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Teléfono</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Email</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Estado</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Facturas</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Total Facturado</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Creado</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                                  {filteredProveedores.map((proveedor) => (
-                   <tr key={proveedor.supplier_id} className="border-b border-text-disabled/20 hover:bg-accent-primary/10 transition-colors">
-                    <td className="px-4 py-3 text-sm text-text-primary font-medium">{proveedor.name}</td>
-                    <td className="px-4 py-3 text-sm text-text-primary">{proveedor.tax_id}</td>
+                   <tr key={proveedor.provider_id} className="border-b border-text-disabled/20 hover:bg-accent-primary/10 transition-colors">
+                    <td className="px-4 py-3 text-sm text-text-primary font-medium">{proveedor.provider_name}</td>
+                    <td className="px-4 py-3 text-sm text-text-primary">{proveedor.provider_tax_id}</td>
                     <td className="px-4 py-3 text-sm text-text-primary">
-                      <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                        {getCategoryName(proveedor.category || 'general')}
+                      <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                        {proveedor.invoices_count || 0}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-text-primary">{proveedor.contact_name}</td>
-                    <td className="px-4 py-3 text-sm text-text-primary">{proveedor.phone}</td>
-                    <td className="px-4 py-3 text-sm text-text-primary">{proveedor.email}</td>
                     <td className="px-4 py-3 text-sm text-text-primary">
-                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(proveedor.status || 'activo')}`}>
-                        {getStatusName(proveedor.status || 'activo')}
-                      </span>
+                      ${proveedor.total_invoiced ? Number(proveedor.total_invoiced).toLocaleString('es-CO') : '0'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-text-primary">
+                      {proveedor.created_at ? new Date(proveedor.created_at).toLocaleDateString('es-CO') : 'N/A'}
                     </td>
                     <td className="px-4 py-3 text-sm text-text-primary">
                       <div className="flex gap-2">
@@ -669,6 +873,13 @@ const Proveedores = () => {
                           title="Ver detalles"
                         >
                           <MdVisibility className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleViewInvoices(proveedor)}
+                          className="text-blue-500 hover:text-blue-400 transition-colors"
+                          title="Ver facturas"
+                        >
+                          <MdReceipt className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => handleEdit(proveedor)}
@@ -692,6 +903,49 @@ const Proveedores = () => {
             </table>
             )}
           </div>
+
+          {/* Paginación */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-sm text-text-secondary">
+                Mostrando {((currentPage - 1) * perPage) + 1} a {Math.min(currentPage * perPage, totalItems)} de {totalItems} proveedores
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 text-sm border border-text-disabled/30 rounded-lg hover:bg-accent-primary/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Anterior
+                </button>
+                
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const page = i + 1;
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-2 text-sm border rounded-lg transition-colors ${
+                        currentPage === page
+                          ? 'bg-accent-primary text-white border-accent-primary'
+                          : 'border-text-disabled/30 hover:bg-accent-primary/10'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+                
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 text-sm border border-text-disabled/30 rounded-lg hover:bg-accent-primary/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
 
@@ -699,81 +953,40 @@ const Proveedores = () => {
       <Modal
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
-        title={`Detalles del Proveedor - ${selectedProveedor?.name}`}
+        title={`Detalles del Proveedor - ${selectedProveedor?.provider_name}`}
       >
         <div className="p-6 space-y-6">
           {selectedProveedor && (
             <>
               {/* Información Principal */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold text-text-primary mb-4">Información del Proveedor</h3>
-                  <div className="space-y-2 text-text-primary">
-                    <div><span className="font-medium">Nombre:</span> {selectedProveedor.name}</div>
-                    <div><span className="font-medium">NIT:</span> {selectedProveedor.tax_id}</div>
-                    <div><span className="font-medium">Categoría:</span> 
-                      <span className={`ml-2 rounded-full px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800`}>
-                        {getCategoryName(selectedProveedor.category || 'general')}
+                  <div className="grid grid-cols-2 gap-4 text-text-primary">
+                    <div><span className="font-medium">Nombre:</span> {selectedProveedor.provider_name}</div>
+                    <div><span className="font-medium">NIT:</span> {selectedProveedor.provider_tax_id}</div>
+                    <div><span className="font-medium">Facturas:</span> 
+                      <span className="ml-2 px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                        {selectedProveedor.invoices_count || 0}
                       </span>
                     </div>
-                    <div><span className="font-medium">Dirección:</span> {selectedProveedor.address}</div>
-                    <div><span className="font-medium">Estado:</span> 
-                      <span className={`ml-2 rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(selectedProveedor.status || 'activo')}`}>
-                        {getStatusName(selectedProveedor.status || 'activo')}
+                    <div><span className="font-medium">Total Facturado:</span> 
+                      <span className="ml-2 font-bold text-green-600">
+                        ${selectedProveedor.total_invoiced ? Number(selectedProveedor.total_invoiced).toLocaleString('es-CO') : '0'}
                       </span>
                     </div>
                   </div>
                 </div>
 
+                {/* Fechas de Creación y Actualización */}
                 <div>
-                  <h3 className="text-lg font-semibold text-text-primary mb-4">Información de Contacto</h3>
-                  <div className="space-y-2 text-text-primary">
-                    <div><span className="font-medium">Teléfono:</span> {selectedProveedor.phone}</div>
-                    <div><span className="font-medium">Email:</span> {selectedProveedor.email}</div>
-                    <div><span className="font-medium">Contacto:</span> {selectedProveedor.contact_name}</div>
-                    <div><span className="font-medium">Teléfono de Contacto:</span> {selectedProveedor.contact_phone}</div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-semibold text-text-primary mb-4">Ubicación</h3>
-                  <div className="space-y-2 text-text-primary">
-                    <div><span className="font-medium">Ciudad:</span> {selectedProveedor.city || 'No especificada'}</div>
-                    <div><span className="font-medium">Departamento:</span> {selectedProveedor.department || 'No especificado'}</div>
-                    <div><span className="font-medium">País:</span> {selectedProveedor.country || 'Colombia'}</div>
+                  <h3 className="text-lg font-semibold text-text-primary mb-4">Fechas</h3>
+                  <div className="grid grid-cols-2 gap-4 text-text-primary">
+                    <div><span className="font-medium">Creado:</span> {formatDate(selectedProveedor.created_at)}</div>
+                    <div><span className="font-medium">Actualizado:</span> {formatDate(selectedProveedor.updated_at)}</div>
                   </div>
                 </div>
               </div>
-
-              {/* Información Comercial */}
-              <div>
-                <h3 className="text-lg font-semibold text-text-primary mb-4">Información Comercial</h3>
-                <div className="grid grid-cols-2 gap-4 text-text-primary">
-                  <div><span className="font-medium">Límite de Crédito:</span> {selectedProveedor.credit_limit ? `$${Number(selectedProveedor.credit_limit).toLocaleString('es-CO')}` : 'No especificado'}</div>
-                  <div><span className="font-medium">Términos de Pago:</span> {selectedProveedor.payment_terms ? `${selectedProveedor.payment_terms} días` : 'No especificados'}</div>
-                  <div><span className="font-medium">Sitio Web:</span> {selectedProveedor.website ? <a href={selectedProveedor.website} target="_blank" rel="noopener noreferrer" className="text-accent-primary hover:underline">{selectedProveedor.website}</a> : 'No especificado'}</div>
-                  <div><span className="font-medium">Descripción:</span> {selectedProveedor.description || 'No especificada'}</div>
-                </div>
-              </div>
-
-              {/* Fechas de Creación y Actualización */}
-              <div>
-                <h3 className="text-lg font-semibold text-text-primary mb-4">Fechas</h3>
-                <div className="grid grid-cols-2 gap-4 text-text-primary">
-                  <div><span className="font-medium">Creado:</span> {formatDate(selectedProveedor.created_at)}</div>
-                  <div><span className="font-medium">Actualizado:</span> {formatDate(selectedProveedor.updated_at)}</div>
-                </div>
-              </div>
-
-              {/* Notas Adicionales */}
-              {selectedProveedor.notes && (
-                <div>
-                  <h3 className="text-lg font-semibold text-text-primary mb-4">Notas Adicionales</h3>
-                  <div className="p-4 bg-gray-50 rounded-lg text-text-primary">
-                    {selectedProveedor.notes}
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
@@ -801,8 +1014,8 @@ const Proveedores = () => {
                 </label>
                 <input
                   type="text"
-                  name="name"
-                  value={formData.name}
+                  name="provider_name"
+                  value={formData.provider_name}
                   onChange={handleFormChange}
                   required
                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
@@ -816,277 +1029,14 @@ const Proveedores = () => {
                 </label>
                 <input
                   type="text"
-                  name="tax_id"
-                  value={formData.tax_id}
+                  name="provider_tax_id"
+                  value={formData.provider_tax_id}
                   onChange={handleFormChange}
                   required
                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
                   placeholder="12345678-9"
                 />
               </div>
-            </div>
-
-            {/* Información de Ubicación */}
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">
-                Dirección
-              </label>
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleFormChange}
-                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                placeholder="Ingrese la dirección del proveedor"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Ciudad
-                </label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="Bogotá"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Departamento
-                </label>
-                <input
-                  type="text"
-                  name="department"
-                  value={formData.department}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="Cundinamarca"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  País
-                </label>
-                <input
-                  type="text"
-                  name="country"
-                  value={formData.country}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="Colombia"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Código Postal
-                </label>
-                <input
-                  type="text"
-                  name="postal_code"
-                  value={formData.postal_code}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="12345"
-                />
-              </div>
-            </div>
-
-            {/* Información de Contacto */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="3001234567"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="proveedor@email.com"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Nombre del Contacto
-                </label>
-                <input
-                  type="text"
-                  name="contact_name"
-                  value={formData.contact_name}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="Nombre del contacto principal"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Teléfono del Contacto
-                </label>
-                <input
-                  type="tel"
-                  name="contact_phone"
-                  value={formData.contact_phone}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="3009876543"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">
-                Email del Contacto
-              </label>
-              <input
-                type="email"
-                name="contact_email"
-                value={formData.contact_email}
-                onChange={handleFormChange}
-                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                placeholder="contacto@proveedor.co"
-              />
-            </div>
-
-            {/* Información Comercial */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Sitio Web
-                </label>
-                <input
-                  type="url"
-                  name="website"
-                  value={formData.website}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="www.proveedor.co"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Límite de Crédito
-                </label>
-                <input
-                  type="number"
-                  name="credit_limit"
-                  value={formData.credit_limit}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="50000000"
-                  min="0"
-                  step="1000000"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Estado
-                </label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                >
-                  <option value="activo">Activo</option>
-                  <option value="inactivo">Inactivo</option>
-                  <option value="suspendido">Suspendido</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Categoría
-                </label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                >
-                  <option value="equipos">Equipos</option>
-                  <option value="materiales">Materiales</option>
-                  <option value="servicios">Servicios</option>
-                  <option value="general">General</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">
-                Términos de Pago (días)
-              </label>
-              <input
-                type="number"
-                name="payment_terms"
-                value={formData.payment_terms}
-                onChange={handleFormChange}
-                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                placeholder="30"
-                min="0"
-                max="365"
-              />
-            </div>
-
-            {/* Campos de Texto Largo */}
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">
-                Descripción
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleFormChange}
-                rows="3"
-                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none resize-none"
-                placeholder="Descripción del proveedor y sus servicios"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">
-                Notas Adicionales
-              </label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleFormChange}
-                rows="3"
-                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none resize-none"
-                placeholder="Notas adicionales sobre el proveedor"
-              />
             </div>
 
             {/* Botones */}
@@ -1138,8 +1088,8 @@ const Proveedores = () => {
                 </label>
                 <input
                   type="text"
-                  name="name"
-                  value={formData.name}
+                  name="provider_name"
+                  value={formData.provider_name}
                   onChange={handleFormChange}
                   required
                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
@@ -1153,278 +1103,14 @@ const Proveedores = () => {
                 </label>
                 <input
                   type="text"
-                  name="tax_id"
-                  value={formData.tax_id}
+                  name="provider_tax_id"
+                  value={formData.provider_tax_id}
                   onChange={handleFormChange}
                   required
                   className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
                   placeholder="12345678-9"
                 />
               </div>
-            </div>
-
-            {/* Información de Ubicación */}
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">
-                Dirección
-              </label>
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleFormChange}
-                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                placeholder="Ingrese la dirección del proveedor"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Ciudad
-                </label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="Bogotá"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Departamento
-                </label>
-                                  <input
-                    type="text"
-                    name="department"
-                    value={formData.department}
-                    onChange={handleFormChange}
-                    className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                    placeholder="Cundinamarca"
-                  />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  País
-                </label>
-                <input
-                  type="text"
-                  name="country"
-                  value={formData.country}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="Colombia"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Código Postal
-                </label>
-                <input
-                  type="text"
-                  name="postal_code"
-                  value={formData.postal_code}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="12345"
-                />
-              </div>
-            </div>
-
-            {/* Información de Contacto */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="3001234567"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="proveedor@email.com"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Nombre del Contacto
-                </label>
-                <input
-                  type="text"
-                  name="contact_name"
-                  value={formData.contact_name}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="Nombre del contacto principal"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Teléfono del Contacto
-                </label>
-                <input
-                  type="tel"
-                  name="contact_phone"
-                  value={formData.contact_phone}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="3009876543"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">
-                Email del Contacto
-              </label>
-              <input
-                type="email"
-                name="contact_email"
-                value={formData.contact_email}
-                onChange={handleFormChange}
-                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                placeholder="contacto@proveedor.co"
-              />
-            </div>
-
-            {/* Información Comercial */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Sitio Web
-                </label>
-                <input
-                  type="url"
-                  name="website"
-                  value={formData.website}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="www.proveedor.co"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Límite de Crédito
-                </label>
-                <input
-                  type="number"
-                  name="credit_limit"
-                  value={formData.credit_limit}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="50000000"
-                  min="0"
-                  step="1000000"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Estado
-                </label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                >
-                  <option value="activo">Activo</option>
-                  <option value="inactivo">Inactivo</option>
-                  <option value="suspendido">Suspendido</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Categoría
-                </label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleFormChange}
-                  className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                  placeholder="General"
-                >
-                  <option value="equipos">Equipos</option>
-                  <option value="materiales">Materiales</option>
-                  <option value="servicios">Servicios</option>
-                  <option value="general">General</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">
-                Términos de Pago (días)
-              </label>
-              <input
-                type="number"
-                name="payment_terms"
-                value={formData.payment_terms}
-                onChange={handleFormChange}
-                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none"
-                placeholder="30"
-                min="0"
-                max="365"
-              />
-            </div>
-
-            {/* Campos de Texto Largo */}
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">
-                Descripción
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleFormChange}
-                rows="3"
-                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none resize-none"
-                placeholder="Descripción del proveedor y sus servicios"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary">
-                Notas Adicionales
-              </label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleFormChange}
-                rows="3"
-                className="mt-1 block w-full rounded-md border border-text-disabled/30 px-3 py-2 bg-primary-card text-text-primary focus:border-accent-primary focus:outline-none resize-none"
-                placeholder="Notas adicionales sobre el proveedor"
-              />
             </div>
 
             {/* Botones */}
@@ -1468,7 +1154,7 @@ const Proveedores = () => {
           )}
           
           <p className="text-text-secondary mb-4">
-            ¿Está seguro que desea eliminar el proveedor <strong>{selectedProveedor?.name}</strong>?
+            ¿Está seguro que desea eliminar el proveedor <strong>{selectedProveedor?.provider_name}</strong>?
           </p>
           
           <p className="text-sm text-text-disabled mb-6">
@@ -1495,6 +1181,139 @@ const Proveedores = () => {
               {formLoading ? "Eliminando..." : "Eliminar Proveedor"}
             </button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Modal de Estadísticas */}
+      <Modal
+        isOpen={isStatisticsModalOpen}
+        onClose={() => setIsStatisticsModalOpen(false)}
+        title="Estadísticas de Proveedores"
+      >
+        <div className="p-6">
+          {statisticsLoading ? (
+            <div className="flex justify-center py-8">
+              <Loading />
+            </div>
+          ) : statistics ? (
+            <div className="space-y-6">
+              {/* Resumen General */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-blue-800">Total de Proveedores</h3>
+                  <p className="text-3xl font-bold text-blue-600">{statistics.total_providers}</p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-green-800">Con Facturas</h3>
+                  <p className="text-3xl font-bold text-green-600">{statistics.providers_with_invoices}</p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-gray-800">Sin Facturas</h3>
+                  <p className="text-3xl font-bold text-gray-600">{statistics.providers_without_invoices}</p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-purple-800">Total Facturado</h3>
+                  <p className="text-2xl font-bold text-purple-600">
+                    ${Number(statistics.total_invoiced).toLocaleString('es-CO')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Top Proveedores */}
+              {statistics.top_providers && statistics.top_providers.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-text-primary mb-4">Top Proveedores por Facturación</h3>
+                  <div className="space-y-2">
+                    {statistics.top_providers.map((provider, index) => (
+                      <div key={provider.provider_id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-text-primary">{provider.provider_name}</p>
+                          <p className="text-sm text-text-secondary">{provider.NIT || provider.provider_tax_id}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-text-primary">
+                            ${Number(provider.total_invoiced).toLocaleString('es-CO')}
+                          </p>
+                          <p className="text-sm text-text-secondary">
+                            {provider.invoices_count} facturas ({provider.percentage}%)
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-text-disabled">
+              No se pudieron cargar las estadísticas
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Modal de Facturas del Proveedor */}
+      <Modal
+        isOpen={isInvoicesModalOpen}
+        onClose={() => setIsInvoicesModalOpen(false)}
+        title={`Facturas de ${selectedProveedor?.provider_name}`}
+      >
+        <div className="p-6">
+          {invoicesLoading ? (
+            <div className="flex justify-center py-8">
+              <Loading />
+            </div>
+          ) : providerInvoices.length > 0 ? (
+            <div className="space-y-4">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-text-disabled/20">
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Número</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Fecha</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Vencimiento</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Monto</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Estado</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-text-primary">Centro de Costo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {providerInvoices.map((invoice) => (
+                      <tr key={invoice.invoice_id} className="border-b border-text-disabled/20">
+                        <td className="px-4 py-3 text-sm text-text-primary">{invoice.invoice_number}</td>
+                        <td className="px-4 py-3 text-sm text-text-primary">
+                          {new Date(invoice.invoice_date).toLocaleDateString('es-CO')}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-primary">
+                          {new Date(invoice.due_date).toLocaleDateString('es-CO')}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-primary">
+                          ${Number(invoice.total_amount).toLocaleString('es-CO')}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-primary">
+                          <span className={`rounded-full px-2 py-1 text-xs font-medium ${
+                            invoice.status === 'PAGADA' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {invoice.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-text-primary">
+                          {invoice.cost_center?.cost_center_name || 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-text-disabled">
+              <p className="text-lg font-medium mb-2">No hay facturas registradas</p>
+              <p className="text-sm">Este proveedor no tiene facturas asociadas</p>
+            </div>
+          )}
         </div>
       </Modal>
     </div>

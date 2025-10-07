@@ -2,6 +2,102 @@
 import { getApiUrl } from '../config/api';
 import { WEBHOOK_CONFIG, validateWebhookResponse } from '../config/webhook';
 
+// Función auxiliar para obtener token de autenticación de manera consistente
+const getAuthToken = () => {
+  try {
+    // Intentar obtener token desde localStorage con diferentes estructuras
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      if (userData.token) return userData.token;
+    }
+    
+    // Fallback a access_token
+    const accessToken = localStorage.getItem('access_token');
+    if (accessToken) return accessToken;
+    
+    // Fallback a token directo
+    const directToken = localStorage.getItem('token');
+    if (directToken) return directToken;
+    
+    return null;
+  } catch (error) {
+    console.error('Error al obtener token de autenticación:', error);
+    return null;
+  }
+};
+
+// Función auxiliar para manejar respuestas de la API con manejo de errores específicos
+const handleApiResponse = async (response, operation = 'operación') => {
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }));
+    
+    // Log detallado del error para debugging
+    console.error(`🚨 ERROR DE API (${operation}):`, {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url,
+      errorData: errorData
+    });
+    
+    // Manejo específico de errores
+    switch (response.status) {
+      case 401:
+        throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+      case 403:
+        throw new Error('No tienes permisos para realizar esta acción.');
+      case 404:
+        throw new Error('Recurso no encontrado.');
+      case 422:
+        if (errorData.errors) {
+          const validationErrors = Object.entries(errorData.errors)
+            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+            .join('; ');
+          throw new Error(`Error de validación: ${validationErrors}`);
+        }
+        throw new Error(errorData.message || 'Error de validación en los datos enviados.');
+      case 500:
+        throw new Error('Error interno del servidor. Intenta nuevamente más tarde.');
+      default:
+        throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+    }
+  }
+  
+  return response.json();
+};
+
+// Función auxiliar para hacer requests con timeout y retry
+const makeApiRequest = async (url, options, operation = 'operación', retries = 2) => {
+  const timeout = 10000; // 10 segundos
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    return await handleApiResponse(response, operation);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('La operación tardó demasiado tiempo. Intenta nuevamente.');
+    }
+    
+    // Retry para errores de red
+    if (retries > 0 && (error.message.includes('fetch') || error.message.includes('network'))) {
+      console.log(`🔄 Reintentando ${operation}... (${retries} intentos restantes)`);
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Esperar 1 segundo
+      return makeApiRequest(url, options, operation, retries - 1);
+    }
+    
+    throw error;
+  }
+};
+
 export const facturasService = {
   // Obtener todas las facturas con filtros opcionales
   getFacturas: async (params = {}) => {
@@ -24,19 +120,25 @@ export const facturasService = {
 
       // Construir parámetros de query
       const queryParams = new URLSearchParams();
+      if (params.page) queryParams.append('page', params.page);
+      if (params.per_page) queryParams.append('per_page', params.per_page);
+      if (params.search) queryParams.append('search', params.search);
       if (params.status) queryParams.append('status', params.status);
-      if (params.supplier_id) queryParams.append('supplier_id', params.supplier_id);
+      if (params.provider_id) queryParams.append('provider_id', params.provider_id);
       if (params.cost_center_id) queryParams.append('cost_center_id', params.cost_center_id);
-      if (params.project_id) queryParams.append('project_id', params.project_id);
-      if (params.payment_method) queryParams.append('payment_method', params.payment_method);
+      // Nuevo esquema de filtros de fecha por mes/año
+      if (params.invoice_month) queryParams.append('invoice_month', params.invoice_month);
+      if (params.invoice_year) queryParams.append('invoice_year', params.invoice_year);
+      // Compatibilidad previa por rango (si el backend aún lo soporta)
       if (params.date_from) queryParams.append('date_from', params.date_from);
       if (params.date_to) queryParams.append('date_to', params.date_to);
-      if (params.search) queryParams.append('search', params.search);
-      if (params.order_by) queryParams.append('order_by', params.order_by);
-      if (params.order_direction) queryParams.append('order_direction', params.order_direction);
-      if (params.per_page) queryParams.append('per_page', params.per_page);
+      if (params.amount_min) queryParams.append('amount_min', params.amount_min);
+      if (params.amount_max) queryParams.append('amount_max', params.amount_max);
+      if (params.overdue) queryParams.append('overdue', params.overdue);
+      if (params.sort_by) queryParams.append('sort_by', params.sort_by);
+      if (params.sort_order) queryParams.append('sort_order', params.sort_order);
 
-      const url = getApiUrl('/api/purchases') + (queryParams.toString() ? `?${queryParams.toString()}` : '');
+      const url = getApiUrl('/api/invoices') + (queryParams.toString() ? `?${queryParams.toString()}` : '');
       
       console.log('🔍 DEBUG: Obteniendo facturas desde:', url);
       
@@ -82,7 +184,7 @@ export const facturasService = {
         throw new Error('No se encontró token de autorización');
       }
 
-      const response = await fetch(getApiUrl('/api/purchases/summary'), {
+      const response = await fetch(getApiUrl('/api/invoices/statistics'), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -124,7 +226,7 @@ export const facturasService = {
         throw new Error('No se encontró token de autorización');
       }
 
-      const response = await fetch(getApiUrl(`/api/purchases/${facturaId}`), {
+      const response = await fetch(getApiUrl(`/api/invoices/${facturaId}`), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -166,7 +268,7 @@ export const facturasService = {
         throw new Error('No se encontró token de autorización');
       }
 
-      const response = await fetch(getApiUrl(`/api/purchases/upcoming-due?days=${days}`), {
+      const response = await fetch(getApiUrl(`/api/invoices/upcoming-due?days=${days}`), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -208,7 +310,7 @@ export const facturasService = {
         throw new Error('No se encontró token de autorización');
       }
 
-      const response = await fetch(getApiUrl('/api/purchase-stats'), {
+      const response = await fetch(getApiUrl('/api/invoices/statistics'), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -251,13 +353,12 @@ export const facturasService = {
       }
 
       // Validar datos requeridos según la documentación
-      if (!facturaData.invoice_number || !facturaData.date || !facturaData.total_amount || 
-          !facturaData.payment_method || !facturaData.supplier_id || !facturaData.cost_center_id || 
-          !facturaData.user_id) {
-        throw new Error('Faltan datos requeridos: número de factura, fecha, monto total, método de pago, proveedor, centro de costo y usuario');
+      if (!facturaData.invoice_number || !facturaData.invoice_date || !facturaData.total_amount || 
+          !facturaData.provider_id || !facturaData.cost_center_id) {
+        throw new Error('Faltan datos requeridos: número de factura, fecha, monto total, proveedor y centro de costo');
       }
 
-      const response = await fetch(getApiUrl('/api/purchases'), {
+      const response = await fetch(getApiUrl('/api/invoices'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -300,7 +401,7 @@ export const facturasService = {
         throw new Error('No se encontró token de autorización');
       }
 
-      const response = await fetch(getApiUrl(`/api/purchases/${facturaId}`), {
+      const response = await fetch(getApiUrl(`/api/invoices/${facturaId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -343,7 +444,7 @@ export const facturasService = {
         throw new Error('No se encontró token de autorización');
       }
 
-      const response = await fetch(getApiUrl(`/api/purchases/${facturaId}`), {
+      const response = await fetch(getApiUrl(`/api/invoices/${facturaId}`), {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -448,13 +549,12 @@ export const facturasService = {
       }
 
       // Validar datos requeridos según la documentación
-      if (!facturaData.invoice_number || !facturaData.date || !facturaData.total_amount || 
-          !facturaData.payment_method || !facturaData.supplier_id || !facturaData.cost_center_id || 
-          !facturaData.user_id) {
-        throw new Error('Faltan datos requeridos: número de factura, fecha, monto total, método de pago, proveedor, centro de costo y usuario');
+      if (!facturaData.invoice_number || !facturaData.invoice_date || !facturaData.total_amount || 
+          !facturaData.provider_id || !facturaData.cost_center_id) {
+        throw new Error('Faltan datos requeridos: número de factura, fecha, monto total, proveedor y centro de costo');
       }
 
-      const response = await fetch(getApiUrl('/api/purchases'), {
+      const response = await fetch(getApiUrl('/api/invoices'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -478,13 +578,81 @@ export const facturasService = {
     }
   },
 
+  // Crear factura con archivos (factura PDF + soporte de pago)
+  crearFacturaConArchivos: async (facturaData, facturaFile, paymentSupportFile) => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      let token = null;
+      
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          token = userData.token;
+        } catch (error) {
+          console.error('Error al parsear datos de usuario:', error);
+        }
+      }
+
+      if (!token) {
+        throw new Error('No se encontró token de autorización');
+      }
+
+      // Validar datos requeridos
+      if (!facturaData.invoice_number || !facturaData.invoice_date || !facturaData.total_amount || 
+          !facturaData.cost_center_id) {
+        throw new Error('Faltan datos requeridos: número de factura, fecha, monto total y centro de costo');
+      }
+
+      // Validar archivos
+      if (!facturaFile) {
+        throw new Error('Se requiere el archivo de factura (PDF)');
+      }
+      if (!paymentSupportFile) {
+        throw new Error('Se requiere el archivo de soporte de pago (imagen)');
+      }
+
+      // Crear FormData para enviar archivos
+      const formData = new FormData();
+      
+      // Agregar datos de la factura
+      Object.keys(facturaData).forEach(key => {
+        formData.append(key, facturaData[key]);
+      });
+      
+      // Agregar archivos
+      formData.append('factura_file', facturaFile);
+      formData.append('payment_support_file', paymentSupportFile);
+
+      const response = await fetch(getApiUrl('/api/invoices/with-files'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Error desconocido' }));
+        throw new Error(errorData.message || `Error al crear la factura con archivos`);
+      }
+
+      const data = await response.json();
+      console.log('📋 DEBUG: Factura creada con archivos:', data);
+      return data;
+    } catch (error) {
+      console.error('Error al crear factura con archivos:', error);
+      throw error;
+    }
+  },
+
   // Función auxiliar para formatear datos de factura para el frontend
   formatFacturaForFrontend: (factura) => {
     if (!factura) return null;
     
     return {
       // Mapear campos de la API a campos del frontend
-      id: factura.id,
+      id: factura.invoice_id || factura.id,
       number: factura.invoice_number || factura.number,
       invoice_number: factura.invoice_number || factura.number,
       date: factura.invoice_date || factura.date,
@@ -495,14 +663,14 @@ export const facturasService = {
       tax_amount: parseFloat(factura.tax_amount || 0),
       paid_amount: parseFloat(factura.paid_amount || 0),
       balance: parseFloat(factura.balance || 0),
-      status: factura.status || 'Pendiente',
+      status: factura.status || 'PENDIENTE',
       payment_method: factura.payment_method || 'Transferencia',
       payment_reference: factura.payment_reference || '',
       description: factura.description || '',
       notes: factura.notes || '',
       document_url: factura.document_url || '',
-      supplier_id: factura.supplier?.id || factura.supplier_id,
-      cost_center_id: factura.cost_center?.id || factura.cost_center_id,
+      provider_id: factura.provider_id,
+      cost_center_id: factura.cost_center_id,
       project_id: factura.project?.id || factura.project_id,
       user_id: factura.user?.id || factura.user_id,
       created_at: factura.created_at,
@@ -513,18 +681,18 @@ export const facturasService = {
       days_until_due: factura.days_until_due,
       days_overdue: factura.days_overdue,
       urgency_level: factura.urgency_level,
-      // Relaciones completas
+      // Relaciones completas - mapear según estructura real de la API
       supplier: {
-        id: factura.supplier?.id,
-        name: factura.supplier?.name || '',
-        tax_id: factura.supplier?.tax_id || '',
-        phone: factura.supplier?.phone || '',
-        email: factura.supplier?.email || '',
-        contact_name: factura.supplier?.contact_name || ''
+        id: factura.provider?.provider_id,
+        name: factura.provider?.provider_name || '',
+        tax_id: factura.provider?.NIT || factura.provider?.provider_tax_id || '',
+        phone: factura.provider?.phone || '',
+        email: factura.provider?.email || '',
+        contact_name: factura.provider?.contact_name || ''
       },
       cost_center: {
-        id: factura.cost_center?.id,
-        name: factura.cost_center?.name || '',
+        id: factura.cost_center?.cost_center_id,
+        name: factura.cost_center?.cost_center_name || '',
         description: factura.cost_center?.description || ''
       },
       project: {
@@ -660,5 +828,122 @@ export const facturasService = {
       'low': 'Bajo'
     };
     return texts[urgencyLevel] || 'Desconocido';
+  },
+
+  // 🔄 NUEVO: Cambiar estado de factura
+  changeInvoiceStatus: async (invoiceId, newStatus) => {
+    try {
+      // Validar parámetros de entrada
+      if (!invoiceId || isNaN(invoiceId) || invoiceId <= 0) {
+        throw new Error('ID de factura inválido');
+      }
+
+      if (!newStatus || typeof newStatus !== 'string') {
+        throw new Error('Estado requerido');
+      }
+
+      // Validar estado
+      if (!['PENDIENTE', 'PAGADA'].includes(newStatus.toUpperCase())) {
+        throw new Error('Estado inválido. Solo se permiten: PENDIENTE, PAGADA');
+      }
+
+      // Obtener token de autenticación
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('No se encontró token de autorización. Por favor, inicia sesión nuevamente.');
+      }
+
+      console.log('🔄 DEBUG: Cambiando estado de factura:', invoiceId, 'a:', newStatus);
+
+      // Validar estructura de la respuesta
+      const validateResponse = (data) => {
+        if (!data || typeof data !== 'object') {
+          throw new Error('Respuesta del servidor inválida');
+        }
+        
+        if (data.success === false) {
+          throw new Error(data.message || 'Error en la operación');
+        }
+        
+        return data;
+      };
+
+      const data = await makeApiRequest(
+        getApiUrl(`/api/invoices/${invoiceId}/status`),
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ status: newStatus.toUpperCase() })
+        },
+        'cambio de estado de factura'
+      );
+
+      const validatedData = validateResponse(data);
+      console.log('✅ DEBUG: Estado de factura actualizado:', validatedData);
+      return validatedData;
+    } catch (error) {
+      console.error('Error al cambiar estado de factura:', error);
+      throw error;
+    }
+  },
+
+  // 🏢 NUEVO: Cambiar centro de costo de factura
+  changeInvoiceCostCenter: async (invoiceId, newCostCenterId) => {
+    try {
+      // Validar parámetros de entrada
+      if (!invoiceId || isNaN(invoiceId) || invoiceId <= 0) {
+        throw new Error('ID de factura inválido');
+      }
+
+      if (!newCostCenterId || isNaN(newCostCenterId) || newCostCenterId <= 0) {
+        throw new Error('ID de centro de costo inválido');
+      }
+
+      // Obtener token de autenticación
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('No se encontró token de autorización. Por favor, inicia sesión nuevamente.');
+      }
+
+      console.log('🏢 DEBUG: Cambiando centro de costo de factura:', invoiceId, 'a:', newCostCenterId);
+
+      // Validar estructura de la respuesta
+      const validateResponse = (data) => {
+        if (!data || typeof data !== 'object') {
+          throw new Error('Respuesta del servidor inválida');
+        }
+        
+        if (data.success === false) {
+          throw new Error(data.message || 'Error en la operación');
+        }
+        
+        return data;
+      };
+
+      const data = await makeApiRequest(
+        getApiUrl(`/api/invoices/${invoiceId}/cost-center`),
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ cost_center_id: parseInt(newCostCenterId) })
+        },
+        'cambio de centro de costo de factura'
+      );
+
+      const validatedData = validateResponse(data);
+      console.log('✅ DEBUG: Centro de costo de factura actualizado:', validatedData);
+      return validatedData;
+    } catch (error) {
+      console.error('Error al cambiar centro de costo de factura:', error);
+      throw error;
+    }
   }
 };

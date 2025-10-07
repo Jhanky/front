@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Card from "components/card";
-import { MdAdd, MdEdit, MdDelete, MdInfo, MdSearch } from "react-icons/md";
+import { MdAdd, MdEdit, MdDelete, MdInfo, MdSearch, MdPersonAdd, MdTrendingUp, MdElectricBolt } from "react-icons/md";
 import Modal from "components/modal";
 import { useAuth } from "context/AuthContext";
 import Mensaje from "components/mensaje";
@@ -92,6 +92,41 @@ const Clientes = () => {
       setLoading(false);
     }
   };
+
+  // Calcular métricas de clientes
+  const calcularMetricas = () => {
+    const ahora = new Date();
+    const trimestreActual = Math.floor(ahora.getMonth() / 3);
+    const inicioTrimestre = new Date(ahora.getFullYear(), trimestreActual * 3, 1);
+    
+    // Clientes nuevos del trimestre
+    const clientesNuevos = clientes.filter(cliente => {
+      const fechaCreacion = new Date(cliente.created_at || cliente.updated_at);
+      return fechaCreacion >= inicioTrimestre;
+    }).length;
+
+    // kW totales posibles a cotizar (basado en consumo mensual)
+    const kwPosibles = clientes.reduce((total, cliente) => {
+      const consumo = parseFloat(cliente.consumo_mensual_kwh) || 0;
+      // Estimación: 1 kWp genera aproximadamente 120-150 kWh/mes en Colombia
+      const kwEstimado = consumo / 130; // Usando 130 como promedio
+      return total + kwEstimado;
+    }, 0);
+
+    // Consumo promedio mensual
+    const consumos = clientes.map(cliente => parseFloat(cliente.consumo_mensual_kwh) || 0);
+    const consumoPromedio = consumos.length > 0 
+      ? consumos.reduce((sum, consumo) => sum + consumo, 0) / consumos.length 
+      : 0;
+
+    return {
+      clientesNuevos,
+      kwPosibles: Math.round(kwPosibles * 10) / 10, // Redondear a 1 decimal
+      consumoPromedio: Math.round(consumoPromedio * 10) / 10
+    };
+  };
+
+  const metricas = calcularMetricas();
 
 
 
@@ -445,7 +480,54 @@ const Clientes = () => {
   }
 
   return (
-    <div className="mt-3 grid h-full grid-cols-1 gap-5 xl:grid-cols-2 2xl:grid-cols-3">
+    <div className="mt-8 grid h-full grid-cols-1 gap-5 xl:grid-cols-2 2xl:grid-cols-3">
+      {/* Widgets de métricas */}
+      <div className="col-span-1 h-fit w-full xl:col-span-2 2xl:col-span-3 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Widget Clientes Nuevos */}
+          <Card extra="p-6 bg-[var(--bg-secondary)] border border-[rgba(138,141,148,0.2)] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)] hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-200">
+            <div className="flex items-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-blue-600">
+                <MdPersonAdd className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">Clientes Nuevos</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">{metricas.clientesNuevos}</p>
+                <p className="text-xs text-[var(--text-disabled)]">Este trimestre</p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Widget kW Posibles */}
+          <Card extra="p-6 bg-[var(--bg-secondary)] border border-[rgba(138,141,148,0.2)] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)] hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-200">
+            <div className="flex items-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-hover)]">
+                <MdTrendingUp className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">kW Posibles</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">{metricas.kwPosibles}</p>
+                <p className="text-xs text-[var(--text-disabled)]">Para cotizar</p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Widget Consumo Promedio */}
+          <Card extra="p-6 bg-[var(--bg-secondary)] border border-[rgba(138,141,148,0.2)] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)] hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-200">
+            <div className="flex items-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-r from-amber-500 to-amber-600">
+                <MdElectricBolt className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">Consumo Promedio</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">{metricas.consumoPromedio}</p>
+                <p className="text-xs text-[var(--text-disabled)]">kWh/mes</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+
       <div className="col-span-1 h-fit w-full xl:col-span-2 2xl:col-span-3">
         <Card extra={"w-full h-full px-8 pb-8 sm:overflow-x-auto"}>
           <div className="flex items-center justify-between py-4">
@@ -568,7 +650,7 @@ const Clientes = () => {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Departamento</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Dirección</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Consumo</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Tarifa</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Fecha Creación</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Responsable</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Acciones</th>
                 </tr>
@@ -601,7 +683,7 @@ const Clientes = () => {
                       {formatNumber(cliente.monthly_consumption_kwh)} kWh
                     </td>
                     <td className="px-6 py-4 text-sm text-text-primary">
-                      ${formatNumber(cliente.energy_rate)}
+                      {cliente.created_at ? new Date(cliente.created_at).toLocaleDateString('es-CO') : 'N/A'}
                     </td>
                     <td className="px-6 py-4 text-sm text-text-primary">
                       {cliente.user?.name || 'N/A'}

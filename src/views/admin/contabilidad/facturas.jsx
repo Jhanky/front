@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Card from "components/card";
-import { MdOutlineCalendarToday, MdAdd, MdEdit, MdDelete, MdVisibility, MdUpload, MdCloudUpload, MdFilterList, MdSearch, MdClear, MdBarChart, MdWarning, MdSchedule, MdError } from "react-icons/md";
-import Calendar from "react-calendar";
-import "react-calendar/dist/Calendar.css";
+import { MdAdd, MdEdit, MdDelete, MdVisibility, MdUpload, MdCloudUpload, MdFilterList, MdSearch, MdClear, MdBarChart, MdWarning, MdSchedule, MdError, MdFileDownload } from "react-icons/md";
 import { getApiUrl, API_CONFIG } from "config/api";
 import { useAuth } from "context/AuthContext";
 import Modal from "components/modal";
@@ -10,618 +8,164 @@ import Loading from "components/loading";
 import { catalogosService } from "services/catalogosService";
 import { facturasService } from "services/facturasService";
 
-// Datos de prueba para cuando la API no esté funcionando
-const MOCK_FACTURAS = [
-  {
-    id: 1,
-    number: "FAC-2024-001",
-    date: "2024-01-15",
-    amount: 2500000,
-    status: "pendiente",
-    payment_method: "Transferencia",
-    description: "Compra de paneles solares para proyecto residencial",
-    supplier: "SolarTech Colombia",
-    project: "Instalación Residencial Medellín",
-    cost_center: {
-      code: "CC-001",
-      name: "Centro de Costos Principal",
-      description: "Centro de costos para proyectos principales",
-      status: "activo"
-    },
-    user: {
-      name: "Jhan Martinez",
-      email: "jhanky@energy4cero.com",
-      phone: "+573015843357"
-    },
-    created_at: "2024-01-15T10:30:00Z",
-    updated_at: "2024-01-15T10:30:00Z"
-  },
-  {
-    id: 2,
-    number: "FAC-2024-002",
-    date: "2024-01-20",
-    amount: 1800000,
-    status: "aprobada",
-    payment_method: "Efectivo",
-    description: "Inversores para proyecto comercial",
-    supplier: "InverterPro",
-    project: "Centro Comercial Bogotá",
-    cost_center: {
-      code: "CC-002",
-      name: "Centro de Costos Comercial",
-      description: "Centro de costos para proyectos comerciales",
-      status: "activo"
-    },
-    user: {
-      name: "María González",
-      email: "maria@energy4cero.com",
-      phone: "+573001234567"
-    },
-    created_at: "2024-01-20T14:15:00Z",
-    updated_at: "2024-01-22T09:45:00Z"
-  },
-  {
-    id: 3,
-    number: "FAC-2024-003",
-    date: "2024-02-05",
-    amount: 3200000,
-    status: "pagada",
-    payment_method: "Cheque",
-    description: "Baterías de respaldo para proyecto industrial",
-    supplier: "BatteryMax",
-    project: "Planta Industrial Cali",
-    cost_center: {
-      code: "CC-003",
-      name: "Centro de Costos Industrial",
-      description: "Centro de costos para proyectos industriales",
-      status: "activo"
-    },
-    user: {
-      name: "Carlos Rodríguez",
-      email: "carlos@energy4cero.com",
-      phone: "+573009876543"
-    },
-    created_at: "2024-02-05T08:20:00Z",
-    updated_at: "2024-02-10T16:30:00Z"
-  },
-  {
-    id: 4,
-    number: "FAC-2024-004",
-    date: "2024-02-12",
-    amount: 950000,
-    status: "rechazada",
-    payment_method: "Transferencia",
-    description: "Cables y conectores para instalación",
-    supplier: "CablePro",
-    project: "Instalación Residencial Medellín",
-    cost_center: {
-      code: "CC-001",
-      name: "Centro de Costos Principal",
-      description: "Centro de costos para proyectos principales",
-      status: "activo"
-    },
-    user: {
-      name: "Ana López",
-      email: "ana@energy4cero.com",
-      phone: "+573005555555"
-    },
-    created_at: "2024-02-12T11:45:00Z",
-    updated_at: "2024-02-13T10:20:00Z"
-  },
-  {
-    id: 5,
-    number: "FAC-2024-005",
-    date: "2024-02-18",
-    amount: 4100000,
-    status: "pendiente",
-    payment_method: "Transferencia",
-    description: "Sistema de monitoreo y control",
-    supplier: "MonitorTech",
-    project: "Centro Comercial Bogotá",
-    cost_center: {
-      code: "CC-002",
-      name: "Centro de Costos Comercial",
-      description: "Centro de costos para proyectos comerciales",
-      status: "activo"
-    },
-    user: {
-      name: "Luis Pérez",
-      email: "luis@energy4cero.com",
-      phone: "+573004444444"
-    },
-    created_at: "2024-02-18T15:30:00Z",
-    updated_at: "2024-02-18T15:30:00Z"
-  },
-  {
-    id: 6,
-    number: "FAC-2024-006",
-    date: "2024-03-01",
-    amount: 2800000,
-    status: "aprobada",
-    payment_method: "Efectivo",
-    description: "Herramientas y equipos de instalación",
-    supplier: "ToolMaster",
-    project: "Planta Industrial Cali",
-    cost_center: {
-      code: "CC-003",
-      name: "Centro de Costos Industrial",
-      description: "Centro de costos para proyectos industriales",
-      status: "activo"
-    },
-    user: {
-      name: "Patricia Silva",
-      email: "patricia@energy4cero.com",
-      phone: "+573003333333"
-    },
-    created_at: "2024-03-01T09:15:00Z",
-    updated_at: "2024-03-03T12:45:00Z"
-  },
-  {
-    id: 7,
-    number: "FAC-2024-007",
-    date: "2024-03-08",
-    amount: 1650000,
-    status: "pendiente",
-    payment_method: "Transferencia",
-    description: "Materiales de soporte y estructura",
-    supplier: "StructurePro",
-    project: "Instalación Residencial Medellín",
-    cost_center: {
-      code: "CC-001",
-      name: "Centro de Costos Principal",
-      description: "Centro de costos para proyectos principales",
-      status: "activo"
-    },
-    user: {
-      name: "Roberto Díaz",
-      email: "roberto@energy4cero.com",
-      phone: "+573002222222"
-    },
-    created_at: "2024-03-08T13:20:00Z",
-    updated_at: "2024-03-08T13:20:00Z"
-  },
-  {
-    id: 8,
-    number: "FAC-2024-008",
-    date: "2024-03-15",
-    amount: 5200000,
-    status: "pagada",
-    payment_method: "Cheque",
-    description: "Sistema completo de energía solar",
-    supplier: "SolarSystem",
-    project: "Centro Comercial Bogotá",
-    cost_center: {
-      code: "CC-002",
-      name: "Centro de Costos Comercial",
-      description: "Centro de costos para proyectos comerciales",
-      status: "activo"
-    },
-    user: {
-      name: "Sofia Mendoza",
-      email: "sofia@energy4cero.com",
-      phone: "+573001111111"
-    },
-    created_at: "2024-03-15T10:45:00Z",
-    updated_at: "2024-03-20T14:30:00Z"
-  }
-];
 
-// Datos de prueba para proyectos
-const MOCK_PROYECTOS = [
-  {
-    id: 1,
-    code: "PROJ-001",
-    name: "Instalación Residencial Medellín",
-    status: "en_progreso",
-    start_date: "2024-01-01",
-    end_date: "2024-06-30"
-  },
-  {
-    id: 2,
-    code: "PROJ-002", 
-    name: "Centro Comercial Bogotá",
-    status: "en_progreso",
-    start_date: "2024-01-15",
-    end_date: "2024-08-31"
-  },
-  {
-    id: 3,
-    code: "PROJ-003",
-    name: "Planta Industrial Cali",
-    status: "completado",
-    start_date: "2024-02-01",
-    end_date: "2024-05-31"
-  }
-];
 
-// Datos de prueba para centros de costo
-const MOCK_CENTROS_COSTO = [
-  {
-    id: 1,
-    code: "CC-001",
-    name: "Centro de Costos Principal",
-    description: "Centro de costos para proyectos principales",
-    status: "activo"
-  },
-  {
-    id: 2,
-    code: "CC-002",
-    name: "Centro de Costos Comercial", 
-    description: "Centro de costos para proyectos comerciales",
-    status: "activo"
-  },
-  {
-    id: 3,
-    code: "CC-003",
-    name: "Centro de Costos Industrial",
-    description: "Centro de costos para proyectos industriales", 
-    status: "activo"
-  }
-];
-
-// Estilos CSS personalizados para el calendario en tema oscuro
-const calendarStyles = `
-  .dark-theme.react-calendar {
-    background-color: #2A2B31 !important;
-    border: 1px solid #4B5563 !important;
-    border-radius: 0.5rem !important;
-    color: #E6E6E6 !important;
-    font-family: inherit !important;
-  }
-
-  .dark-theme.react-calendar__navigation {
-    background-color: #2A2B31 !important;
-    color: #E6E6E6 !important;
-    border-bottom: 1px solid #4B5563 !important;
-  }
-
-  .dark-theme.react-calendar__navigation button {
-    background-color: transparent !important;
-    color: #E6E6E6 !important;
-    border: none !important;
-    padding: 0.75rem !important;
-    font-size: 1rem !important;
-    font-weight: 600 !important;
-    transition: all 0.2s ease !important;
-  }
-
-  .dark-theme.react-calendar__navigation button:hover {
-    background-color: #4B5563 !important;
-    border-radius: 0.25rem !important;
-    color: #FFFFFF !important;
-  }
-
-  .dark-theme.react-calendar__navigation button:disabled {
-    background-color: transparent !important;
-    color: #8A8D94 !important;
-  }
-
-  .dark-theme.react-calendar__navigation button:focus {
-    outline: none !important;
-    background-color: #4B5563 !important;
-    border-radius: 0.25rem !important;
-  }
-
-  .dark-theme.react-calendar__month-view__weekdays {
-    background-color: #2A2B31 !important;
-    color: #B0B3B8 !important;
-    font-weight: 600 !important;
-    text-transform: uppercase !important;
-    font-size: 0.75rem !important;
-    border-bottom: 1px solid #4B5563 !important;
-  }
-
-  .dark-theme.react-calendar__month-view__weekdays__weekday {
-    padding: 0.75rem 0.5rem !important;
-    text-align: center !important;
-    border-right: 1px solid #4B5563 !important;
-  }
-
-  .dark-theme.react-calendar__month-view__weekdays__weekday:last-child {
-    border-right: none !important;
-  }
-
-  .dark-theme.react-calendar__month-view__days {
-    background-color: #2A2B31 !important;
-  }
-
-  .dark-theme.react-calendar__month-view__days__day {
-    background-color: transparent !important;
-    color: #E6E6E6 !important;
-    border: none !important;
-    padding: 0.75rem !important;
-    font-size: 0.875rem !important;
-    transition: all 0.2s ease !important;
-    border-right: 1px solid #4B5563 !important;
-    border-bottom: 1px solid #4B5563 !important;
-  }
-
-  .dark-theme.react-calendar__month-view__days__day:nth-child(7n) {
-    border-right: none !important;
-  }
-
-  .dark-theme.react-calendar__month-view__days__day:hover {
-    background-color: #4B5563 !important;
-    color: #FFFFFF !important;
-  }
-
-  .dark-theme.react-calendar__month-view__days__day--neighboringMonth {
-    color: #8A8D94 !important;
-  }
-
-  .dark-theme.react-calendar__month-view__days__day--selected {
-    background-color: #00C875 !important;
-    color: white !important;
-    font-weight: 600 !important;
-  }
-
-  .dark-theme.react-calendar__month-view__days__day--active {
-    background-color: #009E5D !important;
-    color: white !important;
-    font-weight: 600 !important;
-  }
-
-  .dark-theme.react-calendar__year-view__months__month,
-  .dark-theme.react-calendar__decade-view__years__year,
-  .dark-theme.react-calendar__century-view__decades__decade {
-    background-color: transparent !important;
-    color: #E6E6E6 !important;
-    border: 1px solid #4B5563 !important;
-    padding: 1rem !important;
-    font-size: 0.875rem !important;
-    transition: all 0.2s ease !important;
-    text-align: center !important;
-    margin: 0.25rem !important;
-    border-radius: 0.25rem !important;
-  }
-
-  .dark-theme.react-calendar__year-view__months__month:hover,
-  .dark-theme.react-calendar__decade-view__years__year:hover,
-  .dark-theme.react-calendar__century-view__decades__decade:hover {
-    background-color: #4B5563 !important;
-    color: #FFFFFF !important;
-    border-color: #6B7280 !important;
-  }
-
-  .dark-theme.react-calendar__year-view__months__month--selected,
-  .dark-theme.react-calendar__decade-view__years__year--selected,
-  .dark-theme.react-calendar__century-view__decades__decade--selected {
-    background-color: #00C875 !important;
-    color: white !important;
-    border-color: #00C875 !important;
-    font-weight: 600 !important;
-  }
-
-  .dark-theme.react-calendar__tile {
-    background-color: transparent !important;
-    color: #E6E6E6 !important;
-    border: none !important;
-    padding: 0.75rem !important;
-    font-size: 0.875rem !important;
-    transition: all 0.2s ease !important;
-  }
-
-  .dark-theme.react-calendar__tile:hover {
-    background-color: #4B5563 !important;
-    color: #FFFFFF !important;
-  }
-
-  .dark-theme.react-calendar__tile--active {
-    background-color: #00C875 !important;
-    color: white !important;
-    font-weight: 600 !important;
-  }
-
-  .dark-theme.react-calendar__tile--now {
-    background-color: #3B82F6 !important;
-    color: white !important;
-    font-weight: 600 !important;
-  }
-
-  /* Corregir el problema del mes que se pone blanco al pasar el cursor */
-  .dark-theme.react-calendar__year-view__months__month:focus,
-  .dark-theme.react-calendar__decade-view__years__year:focus,
-  .dark-theme.react-calendar__century-view__decades__decade:focus {
-    background-color: #4B5563 !important;
-    color: #E6E6E6 !important;
-    outline: none !important;
-    border-color: #6B7280 !important;
-  }
-
-  .dark-theme.react-calendar__year-view__months__month:active,
-  .dark-theme.react-calendar__decade-view__years__year:active,
-  .dark-theme.react-calendar__century-view__decades__decade:active {
-    background-color: #00C875 !important;
-    color: white !important;
-    border-color: #00C875 !important;
-  }
-
-  /* Centrar la vista de meses */
-  .dark-theme.react-calendar__year-view {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    justify-content: center !important;
-    align-items: center !important;
-    padding: 1rem !important;
-  }
-
-  .dark-theme.react-calendar__year-view__months {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 0.5rem !important;
-    width: 100% !important;
-    max-width: 300px !important;
-  }
-
-  .dark-theme.react-calendar__year-view__months__month {
-    width: 100% !important;
-    height: auto !important;
-    min-height: 60px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  /* Mejorar el modal del calendario */
-  .calendar-modal {
-    background-color: #2A2B31 !important;
-    border: 1px solid #4B5563 !important;
-    border-radius: 1rem !important;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
-  }
-
-  .calendar-modal-header {
-    background-color: #2A2B31 !important;
-    border-bottom: 1px solid #4B5563 !important;
-    color: #E6E6E6 !important;
-  }
-
-  .calendar-modal-close {
-    color: #B0B3B8 !important;
-    transition: all 0.2s ease !important;
-  }
-
-  .calendar-modal-close:hover {
-    color: #E6E6E6 !important;
-    background-color: #4B5563 !important;
-  }
-
-  .calendar-modal-footer {
-    background-color: #2A2B31 !important;
-    border-top: 1px solid #4B5563 !important;
-  }
-
-  /* Asegurar que los meses no seleccionados mantengan el color correcto */
-  .dark-theme.react-calendar__year-view__months__month:not(.react-calendar__year-view__months__month--selected) {
-    background-color: transparent !important;
-    color: #E6E6E6 !important;
-    border-color: #4B5563 !important;
-  }
-
-  .dark-theme.react-calendar__year-view__months__month:not(.react-calendar__year-view__months__month--selected):hover {
-    background-color: #4B5563 !important;
-    color: #E6E6E6 !important;
-    border-color: #6B7280 !important;
-  }
-
-  /* Sobrescribir completamente los estilos por defecto del react-calendar */
-  .dark-theme.react-calendar button {
-    background-color: transparent !important;
-    color: #E6E6E6 !important;
-    border: none !important;
-  }
-
-  .dark-theme.react-calendar button:hover {
-    background-color: #4B5563 !important;
-    color: #E6E6E6 !important;
-  }
-
-  .dark-theme.react-calendar button:focus {
-    outline: none !important;
-    background-color: #4B5563 !important;
-    color: #E6E6E6 !important;
-  }
-
-  /* Estilos específicos para los meses en la vista de año */
-  .dark-theme.react-calendar__year-view__months__month {
-    background-color: transparent !important;
-    color: #E6E6E6 !important;
-    border: 1px solid #4B5563 !important;
-    padding: 1rem !important;
-    font-size: 0.875rem !important;
-    transition: all 0.2s ease !important;
-    text-align: center !important;
-    margin: 0.25rem !important;
-    border-radius: 0.25rem !important;
-    cursor: pointer !important;
-  }
-
-  .dark-theme.react-calendar__year-view__months__month:hover {
-    background-color: #4B5563 !important;
-    color: #E6E6E6 !important;
-    border-color: #6B7280 !important;
-  }
-
-  .dark-theme.react-calendar__year-view__months__month--selected {
-    background-color: #00C875 !important;
-    color: white !important;
-    border-color: #00C875 !important;
-    font-weight: 600 !important;
-  }
-
-  .dark-theme.react-calendar__year-view__months__month--selected:hover {
-    background-color: #00C875 !important;
-    color: white !important;
-    border-color: #00C875 !important;
-  }
-`;
 
 const Facturas = () => {
   const { user } = useAuth();
+  
+  // Estados principales - declarar primero
   const [facturas, setFacturas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  
+  // Verificar si el usuario es contador (rol 8) - múltiples formas de verificar
+  const isContador = user?.roles?.some(role => role.id === 8) || 
+                    user?.roles?.some(role => role.id === "8") ||
+                    user?.role_id === 8 ||
+                    user?.role_id === "8" ||
+                    (user?.roles && user.roles.length > 0 && user.roles[0].id === 8) ||
+                    (user?.roles && user.roles.length > 0 && user.roles[0].id === "8");
+  
+  // Debug: Verificar la estructura del usuario y roles
+  console.log('🔍 DEBUG: Usuario completo:', user);
+  console.log('🔍 DEBUG: Roles del usuario:', user?.roles);
+  console.log('🔍 DEBUG: Es contador:', isContador);
+  console.log('🔍 DEBUG: Facturas cargadas:', facturas.length);
+  console.log('🔍 DEBUG: Estado de carga:', loading);
+  console.log('🔍 DEBUG: Error:', error);
+  
+  // Debug adicional para roles
+  if (user?.roles) {
+    user.roles.forEach((role, index) => {
+      console.log(`🔍 DEBUG: Rol ${index}:`, role);
+      console.log(`🔍 DEBUG: Rol ${index} ID:`, role.id);
+      console.log(`🔍 DEBUG: Rol ${index} es 8?:`, role.id === 8);
+      console.log(`🔍 DEBUG: Rol ${index} es "8"?:`, role.id === "8");
+    });
+  }
+  
+  // Debug de todas las condiciones
+  console.log('🔍 DEBUG: user?.roles?.some(role => role.id === 8):', user?.roles?.some(role => role.id === 8));
+  console.log('🔍 DEBUG: user?.roles?.some(role => role.id === "8"):', user?.roles?.some(role => role.id === "8"));
+  console.log('🔍 DEBUG: user?.role_id === 8:', user?.role_id === 8);
+  console.log('🔍 DEBUG: user?.role_id === "8":', user?.role_id === "8");
+  console.log('🔍 DEBUG: user?.roles[0]?.id === 8:', user?.roles?.[0]?.id === 8);
+  console.log('🔍 DEBUG: user?.roles[0]?.id === "8":', user?.roles?.[0]?.id === "8");
+  
+  // Debug específico para contador
+  if (isContador) {
+    console.log('🔍 DEBUG: USUARIO ES CONTADOR - Verificando permisos...');
+    console.log('🔍 DEBUG: Token del usuario:', user?.token ? 'Presente' : 'Ausente');
+    console.log('🔍 DEBUG: ID del usuario:', user?.id);
+    console.log('🔍 DEBUG: Nombre del usuario:', user?.name);
+  }
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    last_page: 1,
+    per_page: 15,
+    total: 0,
+    from: 0,
+    to: 0
+  });
   const [showModal, setShowModal] = useState(false);
   const [selectedFactura, setSelectedFactura] = useState(null);
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [selectedYear, setSelectedYear] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("");
-  const [selectedProject, setSelectedProject] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isQuickEditModalOpen, setIsQuickEditModalOpen] = useState(false);
+  const [isCreateBasicModalOpen, setIsCreateBasicModalOpen] = useState(false);
+  const [isUploadDocumentsModalOpen, setIsUploadDocumentsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     invoice_number: "",
-    date: "",
+    invoice_date: "",
+    due_date: "",
+    subtotal: "",
+    iva_amount: "",
+    retention: "",
     total_amount: "",
-    payment_method: "",
-    status: "",
     description: "",
-    supplier_id: "",
-    cost_center_id: "",
-    project_id: ""
+    status: "",
+    sale_type: "",
+    payment_method: "",
+    provider_id: "",
+    cost_center_id: ""
   });
   const [formError, setFormError] = useState("");
   const [formLoading, setFormLoading] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: "", type: "" });
-  const [usingMockData, setUsingMockData] = useState(false);
 
   // Estados para el modal de upload
-  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadFile, setUploadFile] = useState(null); // Archivo de factura (PDF)
+  const [paymentSupportFile, setPaymentSupportFile] = useState(null); // Archivo de soporte de pago (imagen)
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [extractedData, setExtractedData] = useState(null);
   const [proyectos, setProyectos] = useState([]);
   const [centrosCosto, setCentrosCosto] = useState([]);
   const [uploadFormData, setUploadFormData] = useState({
-    project_id: "",
     cost_center_id: "",
-    status: "pendiente"
+    status: "PENDIENTE"
   });
+
+  // Estados para el modal de edición rápida
+  const [quickEditData, setQuickEditData] = useState({
+    cost_center_id: "",
+    status: ""
+  });
+  const [quickEditLoading, setQuickEditLoading] = useState(false);
+  const [quickEditError, setQuickEditError] = useState("");
+  const [quickEditCentrosCosto, setQuickEditCentrosCosto] = useState([]);
+
+  // Estados para el modal de crear factura básica
+  const [basicFormData, setBasicFormData] = useState({
+    invoice_number: "",
+    invoice_date: "",
+    due_date: "",
+    subtotal: "",
+    retention: "",
+    status: "PENDIENTE",
+    sale_type: "CREDITO",
+    payment_method_id: "",
+    provider_id: "",
+    cost_center_id: "",
+    description: ""
+  });
+  const [basicFormLoading, setBasicFormLoading] = useState(false);
+  const [basicFormError, setBasicFormError] = useState("");
+
+  // Estados para el modal de subir documentos
+  const [uploadDocumentsData, setUploadDocumentsData] = useState({
+    payment_support: null,
+    invoice_file: null
+  });
+  const [uploadDocumentsLoading, setUploadDocumentsLoading] = useState(false);
+  const [uploadDocumentsError, setUploadDocumentsError] = useState("");
 
   // Estados para filtros
   const [filters, setFilters] = useState({
     search: "",
     status: "",
-    supplier_id: "",
+    provider_id: "",
     cost_center_id: "",
-    project_id: "",
-    payment_method: "",
-    date_from: "",
-    date_to: ""
+    month: ""
   });
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Estados para opciones de filtros
+  const [providers, setProviders] = useState([]);
+  const [costCenters, setCostCenters] = useState([]);
+  const [loadingFilters, setLoadingFilters] = useState(false);
 
-  // Estados para estadísticas
-  const [estadisticas, setEstadisticas] = useState(null);
-  const [showEstadisticas, setShowEstadisticas] = useState(false);
 
   // Estados para facturas próximas a vencer
   const [facturasProximasVencer, setFacturasProximasVencer] = useState(null);
   const [showFacturasProximasVencer, setShowFacturasProximasVencer] = useState(false);
   const [diasFiltro, setDiasFiltro] = useState(30);
+
+  // Estados para generación de Excel
+  const [generatingExcel, setGeneratingExcel] = useState(false);
 
   // Estados únicos para filtros
   const estadosUnicos = useMemo(() => {
@@ -655,70 +199,9 @@ const Facturas = () => {
 
   const selectRef = React.useRef(null);
 
-  const meses = [
-    { value: "", label: "Todos los meses" },
-    { value: "01", label: "Enero" },
-    { value: "02", label: "Febrero" },
-    { value: "03", label: "Marzo" },
-    { value: "04", label: "Abril" },
-    { value: "05", label: "Mayo" },
-    { value: "06", label: "Junio" },
-    { value: "07", label: "Julio" },
-    { value: "08", label: "Agosto" },
-    { value: "09", label: "Septiembre" },
-    { value: "10", label: "Octubre" },
-    { value: "11", label: "Noviembre" },
-    { value: "12", label: "Diciembre" },
-  ];
 
-  const handleCalendarChange = (date) => {
-    // El mes de JS es base 0, pero el mes que queremos guardar es base 1 (enero = 01)
-    const mes = (date.getMonth() + 1).toString().padStart(2, '0');
-    setSelectedMonth(mes);
-    setSelectedYear(date.getFullYear().toString());
-    setCalendarOpen(false);
-  };
 
-  const facturasFiltradas = useMemo(() => {
-    console.log('Filtrando facturas:', {
-      total: facturas.length,
-      selectedProject,
-      selectedStatus,
-      selectedMonth,
-      selectedYear
-    });
-    
-    return facturas.filter(f => {
-      // Filtro por fecha
-      let fechaOk = true;
-      if (selectedMonth || selectedYear) {
-        if (!f.date) return false;
-        const fecha = new Date(f.date);
-        const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
-        const anio = fecha.getFullYear().toString();
-        const mesOk = selectedMonth ? mes === selectedMonth : true;
-        const anioOk = selectedYear ? anio === selectedYear : true;
-        fechaOk = mesOk && anioOk;
-      }
-
-      // Filtro por estado
-      const estadoOk = selectedStatus ? f.status === selectedStatus : true;
-
-      // Filtro por proyecto - comparar el nombre del proyecto
-      const proyectoOk = selectedProject ? f.project?.name === selectedProject : true;
-
-      if (selectedProject) {
-        console.log('Verificando proyecto:', {
-          facturaId: f.id,
-          projectName: f.project?.name,
-          selectedProject,
-          proyectoOk
-        });
-      }
-
-      return fechaOk && estadoOk && proyectoOk;
-    });
-  }, [facturas, selectedMonth, selectedYear, selectedStatus, selectedProject]);
+  // Los filtros ahora se manejan en el servidor, no necesitamos filtrado local
 
   // Función para cargar facturas
   const fetchFacturas = async (filterParams = {}) => {
@@ -726,40 +209,88 @@ const Facturas = () => {
     setError("");
     try {
       console.log('🔍 DEBUG: Cargando facturas con filtros:', filterParams);
+      console.log('🔍 DEBUG: Usuario es contador:', isContador);
+      console.log('🔍 DEBUG: Token del usuario:', user?.token ? 'Presente' : 'Ausente');
+      console.log('🔍 DEBUG: ID del usuario:', user?.id);
       
       const data = await facturasService.getFacturas(filterParams);
       
       if (data.success && data.data) {
         // Procesar facturas con formateo
         let facturasFormateadas = [];
+        let paginationData = {};
+        
         if (Array.isArray(data.data.data)) {
-          // Estructura paginada
-          facturasFormateadas = data.data.data.map(factura => 
-            facturasService.formatFacturaForFrontend(factura)
-          );
+          // Estructura paginada - usar datos directamente
+          facturasFormateadas = data.data.data;
+          paginationData = {
+            current_page: data.data.current_page || 1,
+            last_page: data.data.last_page || 1,
+            per_page: data.data.per_page || 15,
+            total: data.data.total || 0,
+            from: data.data.from || 0,
+            to: data.data.to || 0
+          };
         } else if (Array.isArray(data.data)) {
-          // Estructura directa
-          facturasFormateadas = data.data.map(factura => 
-            facturasService.formatFacturaForFrontend(factura)
-          );
+          // Estructura directa - usar datos directamente
+          facturasFormateadas = data.data;
+          paginationData = {
+            current_page: 1,
+            last_page: 1,
+            per_page: facturasFormateadas.length,
+            total: facturasFormateadas.length,
+            from: 1,
+            to: facturasFormateadas.length
+          };
         }
+        
+        console.log('📊 DEBUG: Facturas formateadas:', facturasFormateadas);
+        console.log('📊 DEBUG: Primera factura:', facturasFormateadas[0]);
+        
+        // Debug específico para contador
+        if (isContador) {
+          console.log('🔍 DEBUG: CONTADOR - Facturas recibidas:', facturasFormateadas.length);
+          if (facturasFormateadas.length === 0) {
+            console.log('🔍 DEBUG: CONTADOR - No hay facturas disponibles');
+          }
+        }
+        
         setFacturas(facturasFormateadas);
-        setUsingMockData(false);
+        setPagination(paginationData);
       } else if (Array.isArray(data)) {
-        const facturasFormateadas = data.map(factura => 
-          facturasService.formatFacturaForFrontend(factura)
-        );
-        setFacturas(facturasFormateadas);
-        setUsingMockData(false);
+        // Usar datos directamente sin formateo adicional
+        setFacturas(data);
+        setPagination({
+          current_page: 1,
+          last_page: 1,
+          per_page: data.length,
+          total: data.length,
+          from: 1,
+          to: data.length
+        });
       } else {
         throw new Error('Formato de respuesta inesperado');
       }
     } catch (err) {
-      // Si hay error, usar datos mock
-      console.log('⚠️ Error al conectar con API, usando datos de prueba:', err.message);
-      setFacturas(MOCK_FACTURAS);
-      setUsingMockData(true);
-      setError(""); // Limpiar error para mostrar datos mock
+      console.error('Error al cargar facturas:', err);
+      
+      // Debug específico para contador
+      if (isContador) {
+        console.log('🔍 DEBUG: CONTADOR - Error al cargar facturas:', err);
+        console.log('🔍 DEBUG: CONTADOR - Mensaje de error:', err.message);
+        console.log('🔍 DEBUG: CONTADOR - Status del error:', err.status);
+      }
+      
+      setError('Error al cargar las facturas. Por favor, intenta de nuevo.');
+      setFacturas([]);
+      setPagination({
+        current_page: 1,
+        last_page: 1,
+        per_page: 0,
+        total: 0,
+        from: 0,
+        to: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -768,6 +299,31 @@ const Facturas = () => {
   useEffect(() => {
     fetchFacturas();
   }, []);
+
+  // Cargar opciones de filtros cuando se abren
+  useEffect(() => {
+    if (showFilters && (providers.length === 0 || costCenters.length === 0)) {
+      loadFilterOptions();
+    }
+  }, [showFilters]);
+
+  // Aplicar filtros automáticamente solo para búsqueda (con debounce)
+  useEffect(() => {
+    if (filters.search && filters.search.trim()) {
+      const timeoutId = setTimeout(() => {
+        applyFilters();
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [filters.search]);
+
+  // Aplicar filtros automáticamente para selecciones (estado, proveedor, centro de costo, mes)
+  useEffect(() => {
+    if (filters.status || filters.provider_id || filters.cost_center_id || filters.month) {
+      applyFilters();
+    }
+  }, [filters.status, filters.provider_id, filters.cost_center_id, filters.month]);
 
   // Cargar catálogos cuando se abre el modal de upload
   useEffect(() => {
@@ -822,11 +378,8 @@ const Facturas = () => {
       setUploadError(""); // Limpiar error
       
     } catch (error) {
-      console.log('⚠️ Error al cargar catálogos, usando datos de prueba:', error);
-      // Usar datos mock si la API falla
-      setProyectos(MOCK_PROYECTOS);
-      setCentrosCosto(MOCK_CENTROS_COSTO);
-      setUploadError(""); // Limpiar error
+      console.error('Error al cargar catálogos:', error);
+      setUploadError('Error al cargar los catálogos. Por favor, intenta de nuevo.');
     }
   };
 
@@ -864,15 +417,67 @@ const Facturas = () => {
   };
 
   const applyFilters = () => {
-    const filterParams = {};
+    const filterParams = {
+      page: 1, // Resetear a la primera página al aplicar filtros
+      per_page: pagination.per_page
+    };
+    
+    // Solo agregar filtros que tengan valor
+    if (filters.search && filters.search.trim()) {
+      filterParams.search = filters.search.trim();
+    }
+    if (filters.status) {
+      filterParams.status = filters.status;
+    }
+    if (filters.provider_id) {
+      filterParams.provider_id = parseInt(filters.provider_id);
+    }
+    if (filters.cost_center_id) {
+      filterParams.cost_center_id = parseInt(filters.cost_center_id);
+    }
+    if (filters.month) {
+      const [yearStr, monthStr] = filters.month.split('-');
+      filterParams.invoice_month = parseInt(monthStr, 10);
+      filterParams.invoice_year = parseInt(yearStr, 10);
+    }
+    
+    fetchFacturas(filterParams);
+  };
+
+  // Función para cambiar de página
+  const handlePageChange = (page) => {
+    const filterParams = {
+      page: page,
+      per_page: pagination.per_page
+    };
     if (filters.search) filterParams.search = filters.search;
     if (filters.status) filterParams.status = filters.status;
-    if (filters.supplier_id) filterParams.supplier_id = filters.supplier_id;
+    if (filters.provider_id) filterParams.provider_id = filters.provider_id;
     if (filters.cost_center_id) filterParams.cost_center_id = filters.cost_center_id;
-    if (filters.project_id) filterParams.project_id = filters.project_id;
-    if (filters.payment_method) filterParams.payment_method = filters.payment_method;
-    if (filters.date_from) filterParams.date_from = filters.date_from;
-    if (filters.date_to) filterParams.date_to = filters.date_to;
+    if (filters.month) {
+      const [yearStr, monthStr] = filters.month.split('-');
+      filterParams.invoice_month = parseInt(monthStr, 10);
+      filterParams.invoice_year = parseInt(yearStr, 10);
+    }
+    
+    fetchFacturas(filterParams);
+  };
+
+  // Función para cambiar elementos por página
+  const handlePerPageChange = (perPage) => {
+    const filterParams = {
+      page: 1, // Resetear a la primera página
+      per_page: perPage
+    };
+    if (filters.search) filterParams.search = filters.search;
+    if (filters.status) filterParams.status = filters.status;
+    if (filters.provider_id) filterParams.provider_id = filters.provider_id;
+    if (filters.cost_center_id) filterParams.cost_center_id = filters.cost_center_id;
+    if (filters.month) {
+      const [yearStr, monthStr] = filters.month.split('-');
+      filterParams.invoice_month = parseInt(monthStr, 10);
+      filterParams.invoice_year = parseInt(yearStr, 10);
+    }
     
     fetchFacturas(filterParams);
   };
@@ -881,27 +486,50 @@ const Facturas = () => {
     setFilters({
       search: "",
       status: "",
-      supplier_id: "",
+      provider_id: "",
       cost_center_id: "",
-      project_id: "",
-      payment_method: "",
-      date_from: "",
-      date_to: ""
+      month: ""
     });
     fetchFacturas();
   };
 
   // Función para cargar estadísticas
-  const loadEstadisticas = async () => {
+  // Función para cargar opciones de filtros
+  const loadFilterOptions = async () => {
+    setLoadingFilters(true);
     try {
-      const data = await facturasService.getEstadisticasFacturas();
-      if (data.success && data.data) {
-        setEstadisticas(data.data);
+      // Cargar proveedores desde las facturas existentes
+      const facturasData = await facturasService.getFacturas({ per_page: 1000 });
+      if (facturasData.success && facturasData.data?.data) {
+        const uniqueProviders = {};
+        const uniqueCostCenters = {};
+        
+        facturasData.data.data.forEach(factura => {
+          if (factura.provider) {
+            uniqueProviders[factura.provider.provider_id] = {
+              id: factura.provider.provider_id,
+              name: factura.provider.provider_name,
+              nit: factura.provider.NIT
+            };
+          }
+          if (factura.cost_center) {
+            uniqueCostCenters[factura.cost_center.cost_center_id] = {
+              id: factura.cost_center.cost_center_id,
+              name: factura.cost_center.cost_center_name
+            };
+          }
+        });
+        
+        setProviders(Object.values(uniqueProviders));
+        setCostCenters(Object.values(uniqueCostCenters));
       }
     } catch (error) {
-      console.error('Error al cargar estadísticas:', error);
+      console.error('Error al cargar opciones de filtros:', error);
+    } finally {
+      setLoadingFilters(false);
     }
   };
+
 
   // Función para cargar facturas próximas a vencer
   const loadFacturasProximasVencer = async (days = 30) => {
@@ -916,9 +544,127 @@ const Facturas = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('es-CO');
+  // Función para generar Excel usando el backend
+  const generateExcelReport = async () => {
+    setGeneratingExcel(true);
+    
+    try {
+      // Preparar parámetros basados en los filtros actuales
+      const reportParams = new URLSearchParams();
+      
+      // Mapear filtros actuales a parámetros del endpoint
+      if (filters.status) {
+        reportParams.append('status', filters.status);
+      }
+      if (filters.provider_id) {
+        reportParams.append('provider_id', filters.provider_id);
+      }
+      if (filters.cost_center_id) {
+        reportParams.append('cost_center_id', filters.cost_center_id);
+      }
+      if (filters.month) {
+        const [yearStr, monthStr] = filters.month.split('-');
+        reportParams.append('invoice_month', parseInt(monthStr, 10));
+        reportParams.append('invoice_year', parseInt(yearStr, 10));
+      }
+      if (filters.search && filters.search.trim()) {
+        reportParams.append('search', filters.search.trim());
+      }
+      
+      // Construir la URL del endpoint
+      const reportUrl = getApiUrl(`/api/invoices/report?${reportParams.toString()}`);
+      
+      console.log('🔍 DEBUG: Generando reporte Excel con URL:', reportUrl);
+      console.log('🔍 DEBUG: Parámetros:', Object.fromEntries(reportParams));
+      
+      // Realizar la petición al backend
+      const response = await fetch(reportUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error del servidor: ${response.status} - ${errorText}`);
+      }
+      
+      // Obtener el blob del archivo Excel
+      const blob = await response.blob();
+      
+      // Crear URL temporal para descarga
+      const url = window.URL.createObjectURL(blob);
+      
+      // Crear elemento de descarga
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Generar nombre de archivo basado en filtros aplicados
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+      
+      let fileName = `reporte_facturas_${dateStr}_${timeStr}.xlsx`;
+      
+      // Personalizar nombre según filtros aplicados
+      if (filters.status) {
+        fileName = `reporte_facturas_${filters.status.toLowerCase()}_${dateStr}_${timeStr}.xlsx`;
+      }
+      if (filters.month) {
+        const [year, month] = filters.month.split('-');
+        fileName = `reporte_facturas_${year}_${month}_${dateStr}_${timeStr}.xlsx`;
+      }
+      
+      a.download = fileName;
+      
+      // Trigger descarga
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // Limpiar URL temporal
+      window.URL.revokeObjectURL(url);
+      
+      // Mostrar notificación de éxito
+      showNotification('Reporte Excel generado exitosamente', 'success');
+      
+    } catch (error) {
+      console.error('Error al generar reporte Excel:', error);
+      showNotification(`Error al generar el reporte: ${error.message}`, 'error');
+    } finally {
+      setGeneratingExcel(false);
+    }
   };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    // Evitar desplazamientos por zona horaria usando operaciones sobre cadena
+    // Soporta: YYYY-MM-DD, YYYY-MM-DDTHH:mm:ss(.sss)Z y variantes
+    const str = String(dateString);
+    const base = str.length >= 10 ? str.slice(0, 10) : str;
+    const match = base.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      const [, y, m, d] = match;
+      // Formato local es-CO (DD/MM/AAAA)
+      return `${d}/${m}/${y}`;
+    }
+    // Fallback seguro
+    try {
+      return new Date(str).toLocaleDateString('es-CO');
+    } catch {
+      return str;
+    }
+  };
+  // Devuelve { date_from, date_to } para un mes dado en formato YYYY-MM
+  const getMonthRange = (yearMonth) => {
+    if (!yearMonth || !/^\d{4}-\d{2}$/.test(yearMonth)) return null;
+    const [y, m] = yearMonth.split('-');
+    const lastDay = new Date(parseInt(y, 10), parseInt(m, 10), 0).getDate();
+    return { date_from: `${y}-${m}-01`, date_to: `${y}-${m}-${String(lastDay).padStart(2, '0')}` };
+  };
+
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-CO', {
@@ -926,6 +672,50 @@ const Facturas = () => {
       currency: 'COP'
     }).format(amount);
   };
+
+  // Función para calcular IVA automáticamente (19%)
+  const calculateIVA = (subtotal) => {
+    if (!subtotal || isNaN(subtotal)) return 0;
+    return parseFloat(subtotal) * 0.19;
+  };
+
+  // Función para calcular total automáticamente
+  const calculateTotal = (subtotal, iva, retention = 0) => {
+    if (!subtotal || isNaN(subtotal)) return 0;
+    const subtotalNum = parseFloat(subtotal);
+    const ivaNum = iva || calculateIVA(subtotal);
+    const retentionNum = parseFloat(retention) || 0;
+    return subtotalNum + ivaNum - retentionNum;
+  };
+
+  // Función para manejar cambios en el subtotal
+  const handleSubtotalChange = (value) => {
+    const subtotal = parseFloat(value) || 0;
+    const iva = calculateIVA(subtotal);
+    const total = calculateTotal(subtotal, iva, formData.retention);
+    
+    setFormData(prev => ({
+      ...prev,
+      subtotal: value,
+      iva_amount: iva.toFixed(2),
+      total_amount: total.toFixed(2)
+    }));
+  };
+
+  // Función para manejar cambios en la retención
+  const handleRetentionChange = (value) => {
+    const retention = parseFloat(value) || 0;
+    const subtotal = parseFloat(formData.subtotal) || 0;
+    const iva = calculateIVA(subtotal);
+    const total = calculateTotal(subtotal, iva, retention);
+    
+    setFormData(prev => ({
+      ...prev,
+      retention: value,
+      total_amount: total.toFixed(2)
+    }));
+  };
+
 
   // Funciones auxiliares para niveles de urgencia
   const getUrgencyColor = (urgencyLevel) => {
@@ -945,9 +735,9 @@ const Facturas = () => {
       case 'medium':
         return <MdSchedule className="w-4 h-4" />;
       case 'low':
-        return <MdOutlineCalendarToday className="w-4 h-4" />;
+        return <MdError className="w-4 h-4" />;
       default:
-        return <MdOutlineCalendarToday className="w-4 h-4" />;
+        return <MdError className="w-4 h-4" />;
     }
   };
 
@@ -968,14 +758,18 @@ const Facturas = () => {
   const handleCreate = () => {
     setFormData({
       invoice_number: "",
-      date: "",
+      invoice_date: "",
+      due_date: "",
+      subtotal: "",
+      iva_amount: "",
+      retention: "",
       total_amount: "",
-      payment_method: "",
-      status: "",
       description: "",
-      supplier_id: "",
-      cost_center_id: "",
-      project_id: ""
+      status: "",
+      sale_type: "",
+      payment_method: "",
+      provider_id: "",
+      cost_center_id: ""
     });
     setFormError("");
     setIsCreateModalOpen(true);
@@ -984,15 +778,19 @@ const Facturas = () => {
   const handleEdit = (factura) => {
     setSelectedFactura(factura);
     setFormData({
-              invoice_number: factura.number || "",
-      date: factura.date ? factura.date.split('T')[0] : "",
-              total_amount: factura.amount || "",
-      payment_method: factura.payment_method || "",
-      status: factura.status || "",
+      invoice_number: factura.number || "",
+      invoice_date: factura.date ? factura.date.split('T')[0] : "",
+      due_date: factura.due_date ? factura.due_date.split('T')[0] : "",
+      subtotal: factura.subtotal || "",
+      iva_amount: factura.iva_amount || "",
+      retention: factura.retention || "",
+      total_amount: factura.total_amount || factura.amount || "",
       description: factura.description || "",
-      supplier_id: factura.supplier_id || "",
-      cost_center_id: factura.cost_center_id || "",
-      project_id: factura.project_id || ""
+      status: factura.status || "",
+      sale_type: factura.sale_type || "",
+      payment_method: factura.payment_method || "",
+      provider_id: factura.provider_id || "",
+      cost_center_id: factura.cost_center_id || ""
     });
     setFormError("");
     setIsEditModalOpen(true);
@@ -1009,13 +807,13 @@ const Facturas = () => {
     setFormLoading(true);
 
     try {
-      if (!formData.invoice_number || !formData.date || !formData.total_amount) {
+      if (!formData.invoice_number || !formData.invoice_date || !formData.total_amount) {
         throw new Error("Por favor complete los campos obligatorios");
       }
 
       const url = selectedFactura 
-        ? getApiUrl(`${API_CONFIG.ENDPOINTS.PURCHASES}/${selectedFactura.id}`)
-        : getApiUrl(API_CONFIG.ENDPOINTS.PURCHASES);
+        ? getApiUrl(`/api/invoices/${selectedFactura.id}`)
+        : getApiUrl('/api/invoices');
       
       const method = selectedFactura ? "PUT" : "POST";
 
@@ -1066,7 +864,7 @@ const Facturas = () => {
   const handleDeleteConfirm = async () => {
     try {
       setFormLoading(true);
-      const response = await fetch(getApiUrl(`${API_CONFIG.ENDPOINTS.PURCHASES}/${selectedFactura.id}`), {
+      const response = await fetch(getApiUrl(`/api/invoices/${selectedFactura.id}`), {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${user.token}`,
@@ -1093,27 +891,331 @@ const Facturas = () => {
     }
   };
 
+  // Función para cambiar el estado de la factura
+  const handleStatusChange = async (factura, newStatus) => {
+    if (factura.status === newStatus) return; // No hacer nada si el estado es el mismo
+    
+    // Confirmación antes de cambiar el estado
+    const statusText = newStatus === 'PAGADA' ? 'Pagada' : 'Pendiente';
+    const currentStatusText = factura.status === 'PAGADA' ? 'Pagada' : 'Pendiente';
+    
+    if (!window.confirm(`¿Estás seguro de que quieres cambiar el estado de la factura "${factura.invoice_number}" de "${currentStatusText}" a "${statusText}"?`)) {
+      return;
+    }
+    
+    setFormLoading(true);
+    try {
+      const response = await fetch(getApiUrl(`/api/invoices/${factura.invoice_id}`), {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${user.token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          status: newStatus
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al actualizar el estado de la factura");
+      }
+
+      // Actualización dinámica del estado local
+      setFacturas(prev => prev.map(f => 
+        f.invoice_id === factura.invoice_id 
+          ? { ...f, status: newStatus }
+          : f
+      ));
+
+      showNotification(`Estado de la factura "${factura.invoice_number}" cambiado a ${statusText}`, "success");
+      
+    } catch (error) {
+      console.error('Error al cambiar estado:', error);
+      showNotification(`Error al cambiar el estado: ${error.message}`, "error");
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // Función para cargar centros de costo para el modal de edición
+  const loadQuickEditCentrosCosto = async () => {
+    try {
+      const response = await fetch(getApiUrl('/api/cost-centers?status=activo&per_page=50'), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${user.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al cargar centros de costo');
+      }
+
+      const data = await response.json();
+      
+      // Procesar la respuesta según la estructura del API
+      let centrosCostoData = [];
+      if (data.success && data.data) {
+        if (Array.isArray(data.data.data)) {
+          // Estructura paginada
+          centrosCostoData = data.data.data;
+        } else if (Array.isArray(data.data)) {
+          // Estructura directa
+          centrosCostoData = data.data;
+        }
+      } else if (Array.isArray(data)) {
+        centrosCostoData = data;
+      }
+
+      setQuickEditCentrosCosto(centrosCostoData);
+    } catch (error) {
+      console.error('Error al cargar centros de costo para edición:', error);
+      setQuickEditCentrosCosto([]);
+    }
+  };
+
+  // Función para abrir modal de edición rápida
+  const handleEditCostCenter = async (factura) => {
+    setSelectedFactura(factura);
+    setQuickEditData({
+      cost_center_id: factura.cost_center_id || "",
+      status: factura.status || ""
+    });
+    setQuickEditError("");
+    setIsQuickEditModalOpen(true);
+    
+    // Cargar centros de costo cuando se abre el modal
+    await loadQuickEditCentrosCosto();
+  };
+
+  // Función para guardar cambios del modal de edición rápida
+  const handleQuickEditSave = async () => {
+    if (!selectedFactura) return;
+    
+    setQuickEditLoading(true);
+    setQuickEditError("");
+    
+    try {
+      // Usar los nuevos endpoints específicos para cambio de estado y centro de costo
+      const promises = [];
+      
+      // Cambiar estado si es diferente
+      if (quickEditData.status !== selectedFactura.status) {
+        promises.push(
+          facturasService.changeInvoiceStatus(selectedFactura.invoice_id, quickEditData.status)
+        );
+      }
+      
+      // Cambiar centro de costo si es diferente
+      if (quickEditData.cost_center_id !== selectedFactura.cost_center_id) {
+        promises.push(
+          facturasService.changeInvoiceCostCenter(selectedFactura.invoice_id, quickEditData.cost_center_id)
+        );
+      }
+      
+      // Ejecutar cambios si hay alguno
+      if (promises.length > 0) {
+        await Promise.all(promises);
+        
+        // Actualizar la lista de facturas
+        setFacturas(prevFacturas => 
+          prevFacturas.map(f => 
+            f.invoice_id === selectedFactura.invoice_id 
+            ? { 
+                ...f, 
+                cost_center_id: quickEditData.cost_center_id,
+                status: quickEditData.status,
+                cost_center: quickEditCentrosCosto.find(cc => cc.cost_center_id === parseInt(quickEditData.cost_center_id))
+              }
+            : f
+        ));
+
+        showNotification(`Factura "${selectedFactura.invoice_number}" actualizada exitosamente`, "success");
+      } else {
+        showNotification("No hay cambios para guardar", "info");
+      }
+      
+      setIsQuickEditModalOpen(false);
+      setSelectedFactura(null);
+      
+    } catch (error) {
+      console.error('Error al actualizar factura:', error);
+      setQuickEditError(error.message);
+    } finally {
+      setQuickEditLoading(false);
+    }
+  };
+
+  // Función para crear factura básica
+  const handleCreateBasic = async () => {
+    setBasicFormLoading(true);
+    setBasicFormError("");
+    
+    try {
+      const response = await fetch(getApiUrl('/api/invoices'), {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${user.token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          invoice_number: basicFormData.invoice_number,
+          invoice_date: basicFormData.invoice_date,
+          due_date: basicFormData.due_date || null,
+          subtotal: parseFloat(basicFormData.subtotal),
+          retention: parseFloat(basicFormData.retention) || 0,
+          status: basicFormData.status,
+          sale_type: basicFormData.sale_type,
+          payment_method_id: basicFormData.payment_method_id ? parseInt(basicFormData.payment_method_id) : null,
+          provider_id: parseInt(basicFormData.provider_id),
+          cost_center_id: parseInt(basicFormData.cost_center_id),
+          description: basicFormData.description || null
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al crear la factura");
+      }
+
+      const result = await response.json();
+      
+      // Actualizar la lista de facturas
+      await fetchFacturas();
+      
+      showNotification(`Factura "${basicFormData.invoice_number}" creada exitosamente`, "success");
+      setIsCreateBasicModalOpen(false);
+      
+      // Limpiar formulario
+      setBasicFormData({
+        invoice_number: "",
+        invoice_date: "",
+        due_date: "",
+        subtotal: "",
+        retention: "",
+        status: "PENDIENTE",
+        sale_type: "CREDITO",
+        payment_method_id: "",
+        provider_id: "",
+        cost_center_id: "",
+        description: ""
+      });
+      
+    } catch (error) {
+      console.error('Error al crear factura:', error);
+      setBasicFormError(error.message);
+    } finally {
+      setBasicFormLoading(false);
+    }
+  };
+
+  // Función para abrir modal de subir documentos
+  const handleUploadDocuments = (factura) => {
+    setSelectedFactura(factura);
+    setUploadDocumentsData({
+      payment_support: null,
+      invoice_file: null
+    });
+    setUploadDocumentsError("");
+    setIsUploadDocumentsModalOpen(true);
+  };
+
+  // Función para subir documentos a factura existente
+  const handleUploadDocumentsSubmit = async () => {
+    if (!selectedFactura) return;
+    
+    setUploadDocumentsLoading(true);
+    setUploadDocumentsError("");
+    
+    try {
+      const formData = new FormData();
+      
+      if (uploadDocumentsData.payment_support) {
+        formData.append('payment_support', uploadDocumentsData.payment_support);
+      }
+      
+      if (uploadDocumentsData.invoice_file) {
+        formData.append('invoice_file', uploadDocumentsData.invoice_file);
+      }
+
+      const response = await fetch(getApiUrl(`/api/invoices/${selectedFactura.invoice_id}/upload-files`), {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${user.token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Error al subir los documentos");
+      }
+
+      const result = await response.json();
+      
+      // Actualizar la lista de facturas
+      await fetchFacturas();
+      
+      showNotification(`Documentos subidos exitosamente para la factura "${selectedFactura.invoice_number}"`, "success");
+      setIsUploadDocumentsModalOpen(false);
+      setSelectedFactura(null);
+      
+      // Limpiar formulario
+      setUploadDocumentsData({
+        payment_support: null,
+        invoice_file: null
+      });
+      
+    } catch (error) {
+      console.error('Error al subir documentos:', error);
+      setUploadDocumentsError(error.message);
+    } finally {
+      setUploadDocumentsLoading(false);
+    }
+  };
+
   // Funciones para el modal de upload
-  const handleFileChange = (event) => {
+  const handleFileChange = (event, fileType) => {
     const file = event.target.files[0];
     if (file) {
-      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-      if (!allowedTypes.includes(file.type)) {
-        setUploadError('Solo se permiten archivos PDF o imágenes (JPG, PNG)');
-        return;
+      if (fileType === 'factura') {
+        // Solo PDF para facturas
+        if (file.type !== 'application/pdf') {
+          setUploadError('La factura debe ser un archivo PDF');
+          setUploadFile(null);
+          return;
+        }
+        if (file.size > 10 * 1024 * 1024) { // 10MB
+          setUploadError('El archivo de factura es demasiado grande. Máximo 10MB');
+          setUploadFile(null);
+          return;
+        }
+        setUploadFile(file);
+      } else if (fileType === 'payment') {
+        // Solo imágenes para soporte de pago
+        const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+        if (!allowedImageTypes.includes(file.type)) {
+          setUploadError('El soporte de pago debe ser una imagen (JPG, PNG)');
+          setPaymentSupportFile(null);
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) { // 5MB para imágenes
+          setUploadError('El archivo de soporte de pago es demasiado grande. Máximo 5MB');
+          setPaymentSupportFile(null);
+          return;
+        }
+        setPaymentSupportFile(file);
       }
-      if (file.size > 10 * 1024 * 1024) { // 10MB
-        setUploadError('El archivo es demasiado grande. Máximo 10MB');
-        return;
-      }
-      setUploadFile(file);
       setUploadError("");
     }
   };
 
+  // Función para procesar archivo de factura (opcional - para extracción automática)
   const handleFileUpload = async () => {
     if (!uploadFile) {
-      setUploadError('Por favor selecciona un archivo');
+      setUploadError('Por favor selecciona el archivo de factura (PDF)');
       return;
     }
 
@@ -1129,14 +1231,18 @@ const Facturas = () => {
       if (result.success && result.data) {
         setFormData({
           invoice_number: result.data.number || "",
-          date: result.data.date || "",
-                      total_amount: result.data.amount || "",
-          payment_method: result.data.payment_method || "",
-          status: uploadFormData.status,
+          invoice_date: result.data.date || "",
+          due_date: result.data.due_date || "",
+          subtotal: result.data.subtotal || "",
+          iva_amount: result.data.iva_amount || "",
+          retention: result.data.retention || "",
+          total_amount: result.data.total_amount || result.data.amount || "",
           description: result.data.description || "",
-          supplier_id: result.data.supplier_id || "",
-          cost_center_id: uploadFormData.cost_center_id,
-          project_id: uploadFormData.project_id
+          status: uploadFormData.status,
+          sale_type: result.data.sale_type || "",
+          payment_method: result.data.payment_method || "",
+          provider_id: result.data.supplier_id || "",
+          cost_center_id: uploadFormData.cost_center_id
         });
       }
 
@@ -1151,39 +1257,55 @@ const Facturas = () => {
 
   const handleUploadFormSubmit = async (e) => {
     e.preventDefault();
-    if (!uploadFormData.project_id || !uploadFormData.cost_center_id) {
-      setUploadError('Por favor selecciona el proyecto y centro de costo');
+    if (!uploadFormData.cost_center_id) {
+      setUploadError('Por favor selecciona el centro de costo');
+      return;
+    }
+
+    if (!uploadFile) {
+      setUploadError('Por favor selecciona el archivo de factura (PDF)');
+      return;
+    }
+
+    if (!paymentSupportFile) {
+      setUploadError('Por favor selecciona el archivo de soporte de pago (imagen)');
       return;
     }
 
     try {
       setFormLoading(true);
       
-      // Usar el servicio para crear la factura
-      const facturaData = await facturasService.crearFacturaDesdeArchivo(formData);
-      setFacturas(prev => [...prev, facturaData]);
+      // Preparar datos de la factura
+      const facturaData = {
+        ...formData,
+        cost_center_id: uploadFormData.cost_center_id,
+        status: uploadFormData.status
+      };
+      
+      // Usar el servicio para crear la factura con archivos
+      const result = await facturasService.crearFacturaConArchivos(facturaData, uploadFile, paymentSupportFile);
+      setFacturas(prev => [...prev, result]);
 
       showNotification(`Factura "${formData.invoice_number}" creada exitosamente`, "success");
       setIsUploadModalOpen(false);
       
       // Limpiar estados
       setUploadFile(null);
+      setPaymentSupportFile(null);
       setExtractedData(null);
       setUploadFormData({
-        project_id: "",
         cost_center_id: "",
-        status: "pendiente"
+        status: "PENDIENTE"
       });
       setFormData({
         invoice_number: "",
-        date: "",
+        invoice_date: "",
+        due_date: "",
         total_amount: "",
-        payment_method: "",
-        status: "",
         description: "",
-        supplier_id: "",
-        cost_center_id: "",
-        project_id: ""
+        status: "",
+        provider_id: "",
+        cost_center_id: ""
       });
     } catch (error) {
       setUploadError(error.message);
@@ -1195,23 +1317,27 @@ const Facturas = () => {
   const handleUploadModalClose = () => {
     setIsUploadModalOpen(false);
     setUploadFile(null);
+    setPaymentSupportFile(null);
     setExtractedData(null);
     setUploadError("");
     setUploadFormData({
-      project_id: "",
       cost_center_id: "",
-      status: "pendiente"
+      status: "PENDIENTE"
     });
     setFormData({
       invoice_number: "",
-      date: "",
+      invoice_date: "",
+      due_date: "",
+      subtotal: "",
+      iva_amount: "",
+      retention: "",
       total_amount: "",
-      payment_method: "",
-      status: "",
       description: "",
-      supplier_id: "",
-      cost_center_id: "",
-      project_id: ""
+      status: "",
+      sale_type: "",
+      payment_method: "",
+      provider_id: "",
+      cost_center_id: ""
     });
   };
 
@@ -1222,8 +1348,6 @@ const Facturas = () => {
 
   return (
     <div className="mt-3 grid h-full grid-cols-1 gap-5 xl:grid-cols-2 2xl:grid-cols-3">
-      {/* Inyectar estilos CSS para el calendario */}
-      <style>{calendarStyles}</style>
       
       <div className="col-span-1 h-fit w-full xl:col-span-2 2xl:col-span-3">
         <Card extra={"w-full h-full px-8 pb-8 sm:overflow-x-auto"}>
@@ -1232,9 +1356,9 @@ const Facturas = () => {
               <h1 className="text-2xl font-bold text-text-primary">
                 Facturas
               </h1>
-              {usingMockData && (
-                <span className="px-3 py-1 bg-yellow-600/20 border border-yellow-500/50 text-yellow-400 rounded-lg text-sm font-medium">
-                  🧪 Datos de Prueba
+              {isContador && (
+                <span className="px-3 py-1 bg-blue-600/20 border border-blue-500/50 text-blue-400 rounded-lg text-sm font-medium">
+                  📊 Vista de Gestión Financiera
                 </span>
               )}
             </div>
@@ -1250,34 +1374,57 @@ const Facturas = () => {
                 Próximas a Vencer
               </button>
               <button
-                onClick={() => {
-                  setShowEstadisticas(true);
-                  loadEstadisticas();
-                }}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-xl"
+                onClick={generateExcelReport}
+                disabled={generatingExcel}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-white transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-xl ${
+                  generatingExcel 
+                    ? 'bg-gray-600 cursor-not-allowed opacity-70' 
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
               >
-                <MdBarChart className="h-4 w-4" />
-                Estadísticas
+                {generatingExcel ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Generando...
+                  </>
+                ) : (
+                  <>
+                    <MdFileDownload className="h-4 w-4" />
+                    Exportar Excel
+                  </>
+                )}
+              </button>
+              {!isContador && (
+                <>
+                  <button
+                    onClick={() => setIsCreateBasicModalOpen(true)}
+                    className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700 transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-xl"
+                  >
+                    <MdAdd className="h-4 w-4" />
+                    Crear Factura
               </button>
               <button
                 onClick={() => setIsUploadModalOpen(true)}
-                className="flex items-center gap-2 rounded-lg bg-accent-primary px-4 py-2.5 text-white hover:bg-accent-hover transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-xl"
+                    className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-white hover:bg-green-700 transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-xl"
               >
                 <MdCloudUpload className="h-4 w-4" />
-                Subir Factura
+                    Crear con Archivos
               </button>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Mensaje de datos de prueba */}
-          {usingMockData && (
-            <div className="mb-4 bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
+
+          {/* Mensaje informativo para contador */}
+          {isContador && (
+            <div className="mb-6 bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
               <div className="flex items-center gap-3">
-                <div className="text-yellow-400 text-lg">⚠️</div>
+                <div className="text-blue-400 text-lg">ℹ️</div>
                 <div>
-                  <div className="text-yellow-400 font-medium">Usando datos de prueba</div>
-                  <div className="text-yellow-300 text-sm">
-                    La API no está disponible. Se muestran datos de ejemplo para demostrar las funcionalidades del sistema.
+                  <div className="text-blue-400 font-medium">Vista de Gestión Financiera</div>
+                  <div className="text-blue-300 text-sm">
+                    Como contador, tienes acceso de solo lectura a la información financiera. Puedes ver detalles y editar centros de costo, pero no crear facturas ni subir documentos.
                   </div>
                 </div>
               </div>
@@ -1287,110 +1434,196 @@ const Facturas = () => {
           {/* Filtros */}
           <div className="mb-6">
             <div className="bg-primary-card border border-gray-700/50 rounded-xl p-4">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">Filtros de Búsqueda</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Filtro por Estado */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Estado
-                  </label>
-                  <select
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full bg-primary-card border border-gray-600/50 rounded-lg px-3 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-all duration-200"
-                  >
-                    <option value="">Todos los estados</option>
-                    {estadosUnicos.map((estado) => (
-                      <option key={estado} value={estado}>
-                        {estado}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Filtro por Proyecto */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Proyecto
-                  </label>
-                  <select
-                    value={selectedProject}
-                    onChange={(e) => setSelectedProject(e.target.value)}
-                    className="w-full bg-primary-card border border-gray-600/50 rounded-lg px-3 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-all duration-200"
-                  >
-                    <option value="">Todos los proyectos</option>
-                    {proyectosUnicos.map((proyecto) => (
-                      <option key={proyecto.id} value={proyecto.id}>
-                        {proyecto.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Filtro por Fecha */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Fecha
-                  </label>
-                  <button
-                    onClick={() => setCalendarOpen(true)}
-                    className="w-full flex items-center justify-between bg-primary-card border border-gray-600/50 rounded-lg px-3 py-2.5 text-text-primary hover:bg-gray-700/30 hover:border-accent-primary transition-all duration-200"
-                  >
-                    <span className="text-sm">
-                      {selectedMonth && selectedYear 
-                        ? `${selectedYear}-${selectedMonth}`
-                        : "Seleccionar fecha"
-                      }
-                    </span>
-                    <MdOutlineCalendarToday className="h-4 w-4 text-accent-primary" />
-                  </button>
-                </div>
-
-                {/* Botón Limpiar Filtros */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    &nbsp;
-                  </label>
-                  {(selectedMonth || selectedYear || selectedStatus || selectedProject) && (
-                    <button
-                      onClick={() => { 
-                        setSelectedMonth(""); 
-                        setSelectedYear(""); 
-                        setSelectedStatus("");
-                        setSelectedProject("");
-                      }}
-                      className="w-full rounded-lg bg-red-600/20 border border-red-500/50 px-4 py-2.5 text-red-400 hover:bg-red-600/30 hover:text-red-300 transition-all duration-200 text-sm font-medium"
-                    >
-                      Limpiar Filtros
-                    </button>
-                  )}
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary">Filtros de Búsqueda</h3>
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center gap-2 px-3 py-2 bg-accent-primary/10 border border-accent-primary/30 rounded-lg text-accent-primary hover:bg-accent-primary/20 transition-all duration-200 text-sm font-medium"
+                >
+                  <MdFilterList className="h-4 w-4" />
+                  {showFilters ? 'Ocultar Filtros' : 'Mostrar Filtros'}
+                </button>
               </div>
+              
+              {showFilters && (
+                <div className="space-y-4">
+                  {/* Campo de búsqueda */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-text-primary mb-2">
+                      Búsqueda General
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={filters.search}
+                        onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                        placeholder="Buscar por número, descripción, proveedor o centro de costo..."
+                        className="w-full bg-primary-card border border-gray-600/50 rounded-lg px-3 py-2.5 pl-10 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-all duration-200"
+                      />
+                      <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    </div>
+                  </div>
+
+                  {/* Filtros principales */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {/* Filtro por Estado */}
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Estado
+                      </label>
+                      <select
+                        value={filters.status}
+                        onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                        className="w-full bg-primary-card border border-gray-600/50 rounded-lg px-3 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-all duration-200"
+                      >
+                        <option value="">Todos los estados</option>
+                        <option value="PENDIENTE">Pendiente</option>
+                        <option value="PAGADA">Pagada</option>
+                      </select>
+                    </div>
+
+                    {/* Filtro por Proveedor */}
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Proveedor
+                      </label>
+                      <select
+                        value={filters.provider_id}
+                        onChange={(e) => setFilters(prev => ({ ...prev, provider_id: e.target.value }))}
+                        disabled={loadingFilters}
+                        className="w-full bg-primary-card border border-gray-600/50 rounded-lg px-3 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="">
+                          {loadingFilters ? 'Cargando proveedores...' : 'Todos los proveedores'}
+                        </option>
+                        {providers.map((provider) => (
+                          <option key={provider.id} value={provider.id}>
+                            {provider.name} ({provider.nit})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Filtro por Centro de Costo */}
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Centro de Costo
+                      </label>
+                      <select
+                        value={filters.cost_center_id}
+                        onChange={(e) => setFilters(prev => ({ ...prev, cost_center_id: e.target.value }))}
+                        disabled={loadingFilters}
+                        className="w-full bg-primary-card border border-gray-600/50 rounded-lg px-3 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="">
+                          {loadingFilters ? 'Cargando centros de costo...' : 'Todos los centros de costo'}
+                        </option>
+                        {costCenters.map((costCenter) => (
+                          <option key={costCenter.id} value={costCenter.id}>
+                            {costCenter.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Filtro por Mes (invoice_date) */}
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Mes de Factura
+                      </label>
+                      <input
+                        type="month"
+                        value={filters.month}
+                        onChange={(e) => setFilters(prev => ({ ...prev, month: e.target.value }))}
+                        className="w-full bg-primary-card border border-gray-600/50 rounded-lg px-3 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-accent-primary transition-all duration-200"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Botones de acción */}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={applyFilters}
+                      className="bg-accent-primary hover:bg-accent-hover text-white px-6 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium flex items-center gap-2"
+                    >
+                      <MdSearch className="h-4 w-4" />
+                      Aplicar Filtros
+                    </button>
+                    <button
+                      onClick={clearFilters}
+                      className="bg-red-600/20 border border-red-500/50 text-red-400 hover:bg-red-600/30 hover:text-red-300 px-6 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium flex items-center gap-2"
+                    >
+                      <MdClear className="h-4 w-4" />
+                      Limpiar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Contador de resultados */}
           <div className="mb-4 flex justify-between items-center">
             <div className="text-sm text-text-secondary">
-              Mostrando <span className="font-medium text-text-primary">{facturasFiltradas.length}</span> de <span className="font-medium text-text-primary">{facturas.length}</span> facturas
+              Mostrando <span className="font-medium text-text-primary">{pagination.from}</span> a <span className="font-medium text-text-primary">{pagination.to}</span> de <span className="font-medium text-text-primary">{pagination.total}</span> facturas
             </div>
-            {(selectedMonth || selectedYear || selectedStatus || selectedProject) && (
+            {Object.values(filters).some(value => value !== "") && (
               <div className="text-sm text-text-secondary">
                 <span className="font-medium text-text-primary">Filtros activos:</span>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {selectedMonth && selectedYear && (
-                    <span className="px-3 py-1.5 bg-accent-primary/20 border border-accent-primary/30 text-accent-primary rounded-lg text-xs font-medium">
-                      📅 Fecha: {selectedYear}-{selectedMonth}
+                  {filters.search && filters.search.trim() && (
+                    <span className="px-3 py-1.5 bg-blue-600/20 border border-blue-500/30 text-blue-400 rounded-lg text-xs font-medium flex items-center gap-2">
+                      🔍 Búsqueda: {filters.search}
+                      <button
+                        onClick={() => setFilters(prev => ({ ...prev, search: "" }))}
+                        className="text-blue-300 hover:text-blue-100 transition-colors"
+                      >
+                        ×
+                      </button>
                     </span>
                   )}
-                  {selectedStatus && (
-                    <span className="px-3 py-1.5 bg-green-600/20 border border-green-500/30 text-green-400 rounded-lg text-xs font-medium">
-                      📊 Estado: {selectedStatus}
+                  {filters.status && (
+                    <span className="px-3 py-1.5 bg-green-600/20 border border-green-500/30 text-green-400 rounded-lg text-xs font-medium flex items-center gap-2">
+                      📊 Estado: {filters.status}
+                      <button
+                        onClick={() => setFilters(prev => ({ ...prev, status: "" }))}
+                        className="text-green-300 hover:text-green-100 transition-colors"
+                      >
+                        ×
+                      </button>
                     </span>
                   )}
-                  {selectedProject && (
-                    <span className="px-3 py-1.5 bg-purple-600/20 border border-purple-500/30 text-purple-400 rounded-lg text-xs font-medium">
-                      🏗️ Proyecto: {proyectosUnicos.find(p => p.id === selectedProject)?.name}
+                  {filters.provider_id && (
+                    <span className="px-3 py-1.5 bg-purple-600/20 border border-purple-500/30 text-purple-400 rounded-lg text-xs font-medium flex items-center gap-2">
+                      🏢 Proveedor: {providers.find(p => p.id === parseInt(filters.provider_id))?.name || 'ID: ' + filters.provider_id}
+                      <button
+                        onClick={() => setFilters(prev => ({ ...prev, provider_id: "" }))}
+                        className="text-purple-300 hover:text-purple-100 transition-colors"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )}
+                  {filters.cost_center_id && (
+                    <span className="px-3 py-1.5 bg-orange-600/20 border border-orange-500/30 text-orange-400 rounded-lg text-xs font-medium flex items-center gap-2">
+                      🏗️ Centro: {costCenters.find(c => c.id === parseInt(filters.cost_center_id))?.name || 'ID: ' + filters.cost_center_id}
+                      <button
+                        onClick={() => setFilters(prev => ({ ...prev, cost_center_id: "" }))}
+                        className="text-orange-300 hover:text-orange-100 transition-colors"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )}
+                  {filters.month && (
+                    <span className="px-3 py-1.5 bg-cyan-600/20 border border-cyan-500/30 text-cyan-400 rounded-lg text-xs font-medium flex items-center gap-2">
+                      📅 Mes (Factura): {filters.month}
+                      <button
+                        onClick={() => setFilters(prev => ({ ...prev, month: "" }))}
+                        className="text-cyan-300 hover:text-cyan-100 transition-colors"
+                      >
+                        ×
+                      </button>
                     </span>
                   )}
                 </div>
@@ -1406,183 +1639,580 @@ const Facturas = () => {
                   <tr className="bg-gray-800/50 border-b border-gray-700/50">
                     <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Número</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Fecha</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Monto Total</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Tipo Venta</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Subtotal</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">IVA</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Total</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Estado</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Proveedor</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Proyecto</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Centro de Costo</th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-text-primary">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {facturasFiltradas.length === 0 ? (
+                  {facturas.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-6 py-12 text-center text-text-secondary">
+                      <td colSpan="10" className="px-6 py-12 text-center text-text-secondary">
                         <div className="flex flex-col items-center">
                           <div className="text-xl font-medium mb-3 text-text-primary">No se encontraron facturas</div>
                           <div className="text-sm">
-                            {selectedMonth || selectedYear || selectedStatus || selectedProject
+                            {Object.values(filters).some(value => value !== "")
                               ? "Intenta ajustar los filtros de búsqueda"
-                              : "No hay facturas registradas"
+                              : isContador 
+                                ? "No hay facturas disponibles para tu rol de contador"
+                                : "No hay facturas registradas"
                             }
                           </div>
+                          {isContador && (
+                            <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg">
+                              <div className="text-blue-400 text-sm">
+                                Si crees que deberías ver facturas, contacta al administrador para verificar tus permisos.
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    facturasFiltradas.map((factura) => (
-                      <tr key={factura.id} className="border-b border-gray-700/30 hover:bg-accent-primary/5 transition-all duration-200">
-                        <td className="px-6 py-4 text-sm text-text-primary font-medium">{factura.number}</td>
-                        <td className="px-6 py-4 text-sm text-text-primary">{factura.date ? new Date(factura.date).toLocaleDateString('es-CO') : ''}</td>
-                        <td className="px-6 py-4 text-sm text-text-primary font-medium">{factura.amount ? `$${Number(factura.amount).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : ''}</td>
-                        <td className="px-6 py-4 text-sm text-text-primary">{factura.status}</td>
-                        <td className="px-6 py-4 text-sm text-text-primary">{factura.supplier?.name || 'N/A'}</td>
-                        <td className="px-6 py-4 text-sm text-text-primary">{factura.project?.name || 'N/A'}</td>
+                    facturas.map((factura) => {
+                      console.log('🔍 DEBUG: Procesando factura:', factura);
+                      return (
+                      <tr key={factura.invoice_id} className="border-b border-gray-700/30 hover:bg-accent-primary/5 transition-all duration-200">
+                        <td className="px-6 py-4 text-sm text-text-primary font-medium">{factura.invoice_number}</td>
+                        <td className="px-6 py-4 text-sm text-text-primary">{formatDate(factura.invoice_date)}</td>
+                        <td className="px-6 py-4 text-sm text-text-primary">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            factura.sale_type?.toUpperCase() === 'CONTADO' 
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
+                              : factura.sale_type?.toUpperCase() === 'CREDITO'
+                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
+                              : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                          }`}>
+                            {factura.sale_type || 'N/A'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-primary font-medium">
+                          {factura.subtotal ? `$${Number(factura.subtotal).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-primary">
+                          {factura.iva_amount ? `$${Number(factura.iva_amount).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-primary font-medium">
+                          {factura.total_amount ? `$${Number(factura.total_amount).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-primary">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            factura.status?.toUpperCase() === 'PAGADA' 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                              : factura.status?.toUpperCase() === 'PENDIENTE'
+                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                              : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                          }`}>
+                            {factura.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-primary">
+                          {factura.provider?.provider_name || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-text-primary">
+                          {factura.cost_center?.cost_center_name || 'N/A'}
+                        </td>
                         <td className="px-6 py-4 text-sm font-medium">
-                          <div className="flex space-x-2">
+                          <div className="flex items-center space-x-2">
                             <button
                               onClick={() => handleView(factura)}
-                              className="text-accent-primary hover:text-accent-hover transition-all duration-200 p-1 rounded-lg hover:bg-accent-primary/10"
+                              className="text-blue-600 hover:text-blue-800 transition-all duration-200 p-1 rounded-lg hover:bg-blue-100"
                               title="Ver detalles"
                             >
-                              <MdVisibility className="h-5 w-5" />
+                              <MdVisibility className="h-4 w-4" />
                             </button>
+                            <button
+                              onClick={() => handleEditCostCenter(factura)}
+                              className="text-green-600 hover:text-green-800 transition-all duration-200 p-1 rounded-lg hover:bg-green-100"
+                              title="Editar"
+                            >
+                              <MdEdit className="h-4 w-4" />
+                            </button>
+                            {!isContador && (
+                              <button
+                                onClick={() => handleUploadDocuments(factura)}
+                                className="text-purple-600 hover:text-purple-800 transition-all duration-200 p-1 rounded-lg hover:bg-purple-100"
+                                title="Subir documentos"
+                              >
+                                <MdCloudUpload className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           </div>
-        </Card>
-      </div>
 
-      {/* Modal del calendario */}
-      {calendarOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="calendar-modal rounded-2xl shadow-2xl p-6 relative max-w-md w-full mx-4">
-            <div className="calendar-modal-header flex items-center justify-between mb-4 pb-4">
-              <h3 className="text-lg font-semibold text-text-primary">Seleccionar Fecha</h3>
-              <button 
-                onClick={() => setCalendarOpen(false)} 
-                className="calendar-modal-close text-xl transition-colors duration-200 p-2 rounded-lg hover:bg-gray-700/50"
-              >
-                ×
-              </button>
-            </div>
-            <div className="flex justify-center">
-              <Calendar
-                onChange={handleCalendarChange}
-                value={selectedYear && selectedMonth ? new Date(`${selectedYear}-${selectedMonth}-01`) : new Date()}
-                view="year"
-                onClickMonth={handleCalendarChange}
-                maxDetail="year"
-                minDetail="decade"
-                locale="es-ES"
-                className="dark-theme w-full"
-              />
-            </div>
-            <div className="calendar-modal-footer mt-4 pt-4">
-              <div className="text-xs text-text-secondary text-center mb-4">
-                Selecciona un mes y año para filtrar las facturas
+          {/* Controles de Paginación */}
+          {pagination.total > 0 && (
+            <div className="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+              {/* Información de paginación */}
+              <div className="text-sm text-text-secondary">
+                Página <span className="font-medium text-text-primary">{pagination.current_page}</span> de <span className="font-medium text-text-primary">{pagination.last_page}</span>
               </div>
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setCalendarOpen(false)}
-                  className="rounded-lg bg-accent-primary px-4 py-2 text-white hover:bg-accent-hover transition-colors text-sm"
+
+              {/* Selector de elementos por página */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-text-secondary">Mostrar:</span>
+                <select
+                  value={pagination.per_page}
+                  onChange={(e) => handlePerPageChange(parseInt(e.target.value))}
+                  className="bg-primary-card border border-gray-600/50 rounded-lg px-3 py-1.5 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent-primary focus:border-accent-primary"
                 >
-                  Cerrar
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+                <span className="text-sm text-text-secondary">por página</span>
+              </div>
+
+              {/* Navegación de páginas */}
+              <div className="flex items-center gap-2">
+                {/* Botón Anterior */}
+                <button
+                  onClick={() => handlePageChange(pagination.current_page - 1)}
+                  disabled={pagination.current_page <= 1}
+                  className="px-3 py-2 text-sm font-medium text-text-secondary bg-primary-card border border-gray-600/50 rounded-lg hover:bg-gray-700/30 hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  Anterior
+                </button>
+
+                {/* Números de página */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, pagination.last_page) }, (_, i) => {
+                    let pageNum;
+                    if (pagination.last_page <= 5) {
+                      pageNum = i + 1;
+                    } else if (pagination.current_page <= 3) {
+                      pageNum = i + 1;
+                    } else if (pagination.current_page >= pagination.last_page - 2) {
+                      pageNum = pagination.last_page - 4 + i;
+                    } else {
+                      pageNum = pagination.current_page - 2 + i;
+                    }
+
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                          pageNum === pagination.current_page
+                            ? 'bg-accent-primary text-white'
+                            : 'text-text-secondary bg-primary-card border border-gray-600/50 hover:bg-gray-700/30 hover:text-text-primary'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Botón Siguiente */}
+                <button
+                  onClick={() => handlePageChange(pagination.current_page + 1)}
+                  disabled={pagination.current_page >= pagination.last_page}
+                  className="px-3 py-2 text-sm font-medium text-text-secondary bg-primary-card border border-gray-600/50 rounded-lg hover:bg-gray-700/30 hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  Siguiente
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </Card>
+      </div>
+
 
       {/* Modal de detalles */}
       {showModal && selectedFactura && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <div className="bg-primary-card rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative border border-gray-700/50">
             <button onClick={closeModal} className="absolute top-2 right-2 text-text-secondary hover:text-text-primary text-xl transition-colors duration-200">&times;</button>
-            <h2 className="text-xl font-bold mb-4 text-text-primary">Detalles de la Factura</h2>
-            <div className="grid grid-cols-2 gap-6 mb-6">
-              <div>
-                <div className="font-semibold text-lg mb-3 text-text-primary">Información de la Factura</div>
-                <div className="space-y-2">
-                  <div><span className="font-semibold text-text-primary">Número:</span> <span className="text-text-secondary">{selectedFactura.number}</span></div>
-                  <div><span className="font-semibold text-text-primary">Fecha:</span> <span className="text-text-secondary">{selectedFactura.date ? new Date(selectedFactura.date).toLocaleDateString('es-CO') : ''}</span></div>
-                  <div><span className="font-semibold text-text-primary">Monto Total:</span> <span className="text-text-secondary">{selectedFactura.amount ? `$${Number(selectedFactura.amount).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : ''}</span></div>
-                  <div><span className="font-semibold text-text-primary">Estado:</span> <span className="text-text-secondary">{selectedFactura.status}</span></div>
-                  <div><span className="font-semibold text-text-primary">Método de Pago:</span> <span className="text-text-secondary">{selectedFactura.payment_method || 'N/A'}</span></div>
-                  <div><span className="font-semibold text-text-primary">Descripción:</span> <span className="text-text-secondary">{selectedFactura.description || 'N/A'}</span></div>
+            <h2 className="text-xl font-bold mb-6 text-text-primary">Detalles de la Factura</h2>
+            
+            {/* Información Principal de la Factura */}
+            <div className="bg-gray-800/30 rounded-lg p-4 mb-6 border border-gray-700/50">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-text-primary">Factura #{selectedFactura.invoice_number}</h3>
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    selectedFactura.status?.toUpperCase() === 'PAGADA' 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                      : selectedFactura.status?.toUpperCase() === 'PENDIENTE'
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                  }`}>
+                    {selectedFactura.status}
+                  </span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    selectedFactura.sale_type?.toUpperCase() === 'CONTADO' 
+                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
+                      : selectedFactura.sale_type?.toUpperCase() === 'CREDITO'
+                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                  }`}>
+                    {selectedFactura.sale_type}
+                  </span>
                 </div>
               </div>
+              
+              <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <div className="font-semibold text-lg mb-3 text-text-primary">Centro de Costos</div>
-                <div className="space-y-2">
+                  <span className="text-text-secondary">Fecha:</span>
+                  <span className="ml-2 text-text-primary font-medium">{formatDate(selectedFactura.invoice_date)}</span>
+                </div>
+                {selectedFactura.due_date && (
                   <div>
-                    <span className="font-semibold text-text-primary">Categoría:</span> 
-                    {selectedFactura.cost_center?.category ? (
-                      <div className="flex items-center gap-2 mt-1">
-                        <div 
-                          className="w-4 h-4 rounded-full" 
-                          style={{ backgroundColor: selectedFactura.cost_center.category.color }}
-                        ></div>
-                        <span className="text-text-secondary">{selectedFactura.cost_center.category.name}</span>
+                    <span className="text-text-secondary">Vencimiento:</span>
+                    <span className="ml-2 text-text-primary font-medium">{formatDate(selectedFactura.due_date)}</span>
+              </div>
+                )}
+                {selectedFactura.payment_method?.name && (
+              <div>
+                    <span className="text-text-secondary">Método de Pago:</span>
+                    <span className="ml-2 text-text-primary font-medium">{selectedFactura.payment_method.name}</span>
+                  </div>
+                )}
+                {selectedFactura.description && (
+                  <div className="col-span-2">
+                    <span className="text-text-secondary">Descripción:</span>
+                    <span className="ml-2 text-text-primary font-medium">{selectedFactura.description}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Información Financiera - Destacada */}
+            {selectedFactura.total_amount && (
+              <div className="bg-blue-900/20 rounded-lg p-4 mb-6 border border-blue-700/50">
+                <h3 className="text-lg font-semibold text-text-primary mb-3">Información Financiera</h3>
+                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    {selectedFactura.subtotal && (
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Subtotal:</span>
+                        <span className="text-text-primary font-medium">${Number(selectedFactura.subtotal).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                       </div>
-                    ) : (
-                      <span className="text-text-secondary ml-2">N/A</span>
+                    )}
+                    {selectedFactura.iva_amount && (
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">IVA (19%):</span>
+                        <span className="text-text-primary font-medium">${Number(selectedFactura.iva_amount).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                  </div>
+                    )}
+                    {selectedFactura.retention && (
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Retención:</span>
+                        <span className="text-text-primary font-medium">${Number(selectedFactura.retention).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                </div>
+                    )}
+              </div>
+                  <div className="flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-text-secondary text-sm mb-1">Total</div>
+                      <div className="text-2xl font-bold text-blue-400">${Number(selectedFactura.total_amount).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+            </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Información del Proveedor y Centro de Costo */}
+            <div className="grid grid-cols-2 gap-6 mb-6">
+              {selectedFactura.provider?.provider_name && (
+                <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/50">
+                  <h3 className="text-lg font-semibold text-text-primary mb-3">Proveedor</h3>
+                  <div className="space-y-2 text-sm">
+              <div>
+                      <span className="text-text-secondary">Nombre:</span>
+                      <span className="ml-2 text-text-primary font-medium">{selectedFactura.provider.provider_name}</span>
+                </div>
+                    {selectedFactura.provider.NIT && (
+                      <div>
+                        <span className="text-text-secondary">NIT:</span>
+                        <span className="ml-2 text-text-primary font-medium">{selectedFactura.provider.NIT}</span>
+              </div>
+                    )}
+                    {selectedFactura.provider_id && (
+              <div>
+                        <span className="text-text-secondary">ID:</span>
+                        <span className="ml-2 text-text-primary font-medium">{selectedFactura.provider_id}</span>
+                </div>
+                    )}
+              </div>
+            </div>
+              )}
+            
+              {selectedFactura.cost_center?.cost_center_name && (
+                <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/50">
+                  <h3 className="text-lg font-semibold text-text-primary mb-3">Centro de Costo</h3>
+                  <div className="space-y-2 text-sm">
+              <div>
+                      <span className="text-text-secondary">Nombre:</span>
+                      <span className="ml-2 text-text-primary font-medium">{selectedFactura.cost_center.cost_center_name}</span>
+                </div>
+                    {selectedFactura.cost_center_id && (
+                      <div>
+                        <span className="text-text-secondary">ID:</span>
+                        <span className="ml-2 text-text-primary font-medium">{selectedFactura.cost_center_id}</span>
+              </div>
                     )}
                   </div>
-                  <div><span className="font-semibold text-text-primary">Nombre:</span> <span className="text-text-secondary">{selectedFactura.cost_center?.name || 'N/A'}</span></div>
-                  <div><span className="font-semibold text-text-primary">Descripción:</span> <span className="text-text-secondary">{selectedFactura.cost_center?.description || 'N/A'}</span></div>
-                  <div><span className="font-semibold text-text-primary">Estado:</span> <span className="text-text-secondary">{selectedFactura.cost_center?.status || 'N/A'}</span></div>
                 </div>
-              </div>
+              )}
             </div>
+
+            {/* Fechas del Sistema */}
+            {(selectedFactura.created_at || selectedFactura.updated_at) && (
+              <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/50">
+                <h3 className="text-lg font-semibold text-text-primary mb-3">Fechas del Sistema</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  {selectedFactura.created_at && (
+              <div>
+                      <span className="text-text-secondary">Creado:</span>
+                      <span className="ml-2 text-text-primary font-medium">{formatDate(selectedFactura.created_at)}</span>
+                </div>
+                  )}
+                  {selectedFactura.updated_at && (
+                    <div>
+                      <span className="text-text-secondary">Actualizado:</span>
+                      <span className="ml-2 text-text-primary font-medium">{formatDate(selectedFactura.updated_at)}</span>
+              </div>
+                  )}
+            </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Crear Factura Básica */}
+      {isCreateBasicModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-primary-card rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative border border-gray-700/50">
+            <button 
+              onClick={() => setIsCreateBasicModalOpen(false)} 
+              className="absolute top-4 right-4 text-text-secondary hover:text-text-primary text-xl transition-colors duration-200"
+            >
+              ×
+            </button>
             
-            <div className="grid grid-cols-2 gap-6 mb-6">
-              <div>
-                <div className="font-semibold text-lg mb-3 text-text-primary">Información del Proveedor</div>
-                <div className="space-y-2">
-                  <div><span className="font-semibold text-text-primary">Nombre:</span> <span className="text-text-secondary">{selectedFactura.supplier || 'N/A'}</span></div>
-                  <div><span className="font-semibold text-text-primary">NIT:</span> <span className="text-text-secondary">N/A</span></div>
-                  <div><span className="font-semibold text-text-primary">Dirección:</span> <span className="text-text-secondary">N/A</span></div>
-                  <div><span className="font-semibold text-text-primary">Teléfono:</span> <span className="text-text-secondary">N/A</span></div>
-                  <div><span className="font-semibold text-text-primary">Email:</span> <span className="text-text-secondary">N/A</span></div>
-                  <div><span className="font-semibold text-text-primary">Contacto:</span> <span className="text-text-secondary">N/A</span></div>
-                </div>
-              </div>
-              <div>
-                <div className="font-semibold text-lg mb-3 text-text-primary">Información del Proyecto</div>
-                <div className="space-y-2">
-                  <div><span className="font-semibold text-text-primary">Código:</span> <span className="text-text-secondary">N/A</span></div>
-                  <div><span className="font-semibold text-text-primary">Nombre:</span> <span className="text-text-secondary">{selectedFactura.project || 'N/A'}</span></div>
-                  <div><span className="font-semibold text-text-primary">Estado:</span> <span className="text-text-secondary">N/A</span></div>
-                  <div><span className="font-semibold text-text-primary">Fecha de Inicio:</span> <span className="text-text-secondary">N/A</span></div>
-                  <div><span className="font-semibold text-text-primary">Fecha de Fin:</span> <span className="text-text-secondary">N/A</span></div>
-                </div>
-              </div>
-            </div>
+            <h2 className="text-xl font-bold mb-6 text-text-primary">Crear Factura</h2>
             
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <div className="font-semibold text-lg mb-3 text-text-primary">Usuario Responsable</div>
-                <div className="space-y-2">
-                  <div><span className="font-semibold text-text-primary">Nombre:</span> <span className="text-text-secondary">{selectedFactura.user?.name || 'N/A'}</span></div>
-                  <div><span className="font-semibold text-text-primary">Email:</span> <span className="text-text-secondary">{selectedFactura.user?.email || 'N/A'}</span></div>
-                  <div><span className="font-semibold text-text-primary">Teléfono:</span> <span className="text-text-secondary">{selectedFactura.user?.phone || 'N/A'}</span></div>
+            {basicFormError && (
+              <div className="mb-4 p-3 bg-red-900/20 border border-red-700/50 rounded-lg">
+                <div className="text-red-400 text-sm">{basicFormError}</div>
+              </div>
+            )}
+
+            <form onSubmit={(e) => { e.preventDefault(); handleCreateBasic(); }} className="space-y-6">
+              {/* Información Básica */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Número de Factura *
+                  </label>
+                  <input
+                    type="text"
+                    value={basicFormData.invoice_number}
+                    onChange={(e) => setBasicFormData(prev => ({ ...prev, invoice_number: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Fecha de Emisión *
+                  </label>
+                  <input
+                    type="date"
+                    value={basicFormData.invoice_date}
+                    onChange={(e) => setBasicFormData(prev => ({ ...prev, invoice_date: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
                 </div>
               </div>
-              <div>
-                <div className="font-semibold text-lg mb-3 text-text-primary">Fechas del Sistema</div>
-                <div className="space-y-2">
-                  <div><span className="font-semibold text-text-primary">Creado:</span> <span className="text-text-secondary">{selectedFactura.created_at ? new Date(selectedFactura.created_at).toLocaleDateString('es-CO') : 'N/A'}</span></div>
-                  <div><span className="font-semibold text-text-primary">Actualizado:</span> <span className="text-text-secondary">{selectedFactura.updated_at ? new Date(selectedFactura.updated_at).toLocaleDateString('es-CO') : 'N/A'}</span></div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Fecha de Vencimiento
+                  </label>
+                  <input
+                    type="date"
+                    value={basicFormData.due_date}
+                    onChange={(e) => setBasicFormData(prev => ({ ...prev, due_date: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Estado *
+                  </label>
+                  <select
+                    value={basicFormData.status}
+                    onChange={(e) => setBasicFormData(prev => ({ ...prev, status: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="PENDIENTE">Pendiente</option>
+                    <option value="PAGADA">Pagada</option>
+                  </select>
                 </div>
               </div>
-            </div>
+
+              {/* Información Financiera */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Subtotal *
+                  </label>
+                  <input
+                    type="number"
+                    value={basicFormData.subtotal}
+                    onChange={(e) => setBasicFormData(prev => ({ ...prev, subtotal: e.target.value }))}
+                    step="0.01"
+                    min="0"
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Retención
+                  </label>
+                  <input
+                    type="number"
+                    value={basicFormData.retention}
+                    onChange={(e) => setBasicFormData(prev => ({ ...prev, retention: e.target.value }))}
+                    step="0.01"
+                    min="0"
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Tipo de Venta *
+                  </label>
+                  <select
+                    value={basicFormData.sale_type}
+                    onChange={(e) => setBasicFormData(prev => ({ ...prev, sale_type: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="CONTADO">Contado</option>
+                    <option value="CREDITO">Crédito</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Relaciones */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Proveedor *
+                  </label>
+                  <select
+                    value={basicFormData.provider_id}
+                    onChange={(e) => setBasicFormData(prev => ({ ...prev, provider_id: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Seleccionar proveedor</option>
+                    {providers.map((provider) => (
+                      <option key={provider.provider_id} value={provider.provider_id}>
+                        {provider.provider_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Centro de Costo *
+                  </label>
+                  <select
+                    value={basicFormData.cost_center_id}
+                    onChange={(e) => setBasicFormData(prev => ({ ...prev, cost_center_id: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="">Seleccionar centro de costo</option>
+                    {centrosCosto.map((centro) => (
+                      <option key={centro.cost_center_id} value={centro.cost_center_id}>
+                        {centro.cost_center_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Método de Pago
+                </label>
+                <select
+                  value={basicFormData.payment_method_id}
+                  onChange={(e) => setBasicFormData(prev => ({ ...prev, payment_method_id: e.target.value }))}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Seleccionar método de pago</option>
+                  <option value="1">Transferencia desde cuenta Davivienda E4(TCD)</option>
+                  <option value="2">Transferencia desde Cuenta personal(CP)</option>
+                  <option value="3">Efectivo</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Descripción
+                </label>
+                <textarea
+                  value={basicFormData.description}
+                  onChange={(e) => setBasicFormData(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Descripción adicional de la factura..."
+                />
+              </div>
+
+              {/* Botones */}
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateBasicModalOpen(false)}
+                  disabled={basicFormLoading}
+                  className="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors duration-200 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={basicFormLoading}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors duration-200 flex items-center gap-2"
+                >
+                  {basicFormLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Creando...
+                    </>
+                  ) : (
+                    'Crear Factura'
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -1598,30 +2228,31 @@ const Facturas = () => {
               ×
             </button>
             
-            <h2 className="text-xl font-bold mb-6 text-text-primary">Subir y Procesar Factura</h2>
+            <h2 className="text-xl font-bold mb-6 text-text-primary">Crear Factura con Archivos</h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Panel izquierdo - Subida de archivo */}
+              {/* Panel izquierdo - Subida de archivos */}
               <div className="space-y-4">
+                {/* Sección 1: Archivo de Factura */}
                 <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
-                  <h3 className="text-lg font-semibold mb-4 text-text-primary">1. Subir Archivo</h3>
+                  <h3 className="text-lg font-semibold mb-4 text-text-primary">1. Archivo de Factura (PDF)</h3>
                   
                   <div className="space-y-4">
                     <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-gray-500 transition-colors">
                       <input
                         type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={handleFileChange}
+                        accept=".pdf"
+                        onChange={(e) => handleFileChange(e, 'factura')}
                         className="hidden"
-                        id="file-upload"
+                        id="factura-upload"
                       />
-                      <label htmlFor="file-upload" className="cursor-pointer">
+                      <label htmlFor="factura-upload" className="cursor-pointer">
                         <MdCloudUpload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                         <div className="text-text-primary font-medium">
-                          {uploadFile ? uploadFile.name : "Haz clic para seleccionar archivo"}
+                          {uploadFile ? uploadFile.name : "Haz clic para seleccionar factura PDF"}
                         </div>
                         <div className="text-text-secondary text-sm mt-2">
-                          PDF, JPG, PNG (máx. 10MB)
+                          Solo archivos PDF (máx. 10MB)
                         </div>
                       </label>
                     </div>
@@ -1630,56 +2261,76 @@ const Facturas = () => {
                       <div className="bg-green-900/20 border border-green-700/50 rounded-lg p-3">
                         <div className="flex items-center gap-2 text-green-400">
                           <MdUpload className="h-4 w-4" />
-                          <span className="text-sm font-medium">Archivo seleccionado: {uploadFile.name}</span>
+                          <span className="text-sm font-medium">Factura seleccionada: {uploadFile.name}</span>
                         </div>
                         <div className="text-xs text-green-300 mt-1">
                           Tamaño: {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
                         </div>
+                        <button
+                          onClick={handleFileUpload}
+                          disabled={uploadLoading}
+                          className="mt-2 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+                        >
+                          {uploadLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              Procesando...
+                            </>
+                          ) : (
+                            <>
+                              <MdUpload className="h-4 w-4" />
+                              Extraer Datos (Opcional)
+                            </>
+                          )}
+                        </button>
                       </div>
                     )}
+                  </div>
+                </div>
 
-                    <button
-                      onClick={handleFileUpload}
-                      disabled={!uploadFile || uploadLoading}
-                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                      {uploadLoading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          Procesando...
-                        </>
-                      ) : (
-                        <>
+                {/* Sección 2: Soporte de Pago */}
+                <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
+                  <h3 className="text-lg font-semibold mb-4 text-text-primary">2. Soporte de Pago (Imagen)</h3>
+                  
+                  <div className="space-y-4">
+                    <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-gray-500 transition-colors">
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png"
+                        onChange={(e) => handleFileChange(e, 'payment')}
+                        className="hidden"
+                        id="payment-upload"
+                      />
+                      <label htmlFor="payment-upload" className="cursor-pointer">
+                        <MdCloudUpload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <div className="text-text-primary font-medium">
+                          {paymentSupportFile ? paymentSupportFile.name : "Haz clic para seleccionar soporte de pago"}
+                        </div>
+                        <div className="text-text-secondary text-sm mt-2">
+                          JPG, PNG (máx. 5MB)
+                        </div>
+                      </label>
+                    </div>
+
+                    {paymentSupportFile && (
+                      <div className="bg-green-900/20 border border-green-700/50 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-green-400">
                           <MdUpload className="h-4 w-4" />
-                          Procesar Archivo
-                        </>
-                      )}
-                    </button>
+                          <span className="text-sm font-medium">Soporte seleccionado: {paymentSupportFile.name}</span>
+                        </div>
+                        <div className="text-xs text-green-300 mt-1">
+                          Tamaño: {(paymentSupportFile.size / 1024 / 1024).toFixed(2)} MB
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Configuración de la factura */}
                 <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
-                  <h3 className="text-lg font-semibold mb-4 text-text-primary">2. Configuración</h3>
+                  <h3 className="text-lg font-semibold mb-4 text-text-primary">3. Configuración</h3>
                   
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-text-primary mb-2">
-                        Proyecto *
-                      </label>
-                      <select
-                        value={uploadFormData.project_id}
-                        onChange={(e) => setUploadFormData(prev => ({ ...prev, project_id: e.target.value }))}
-                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Seleccionar proyecto</option>
-                        {proyectos.map((proyecto) => (
-                          <option key={proyecto.id} value={proyecto.id}>
-                            {proyecto.code} - {proyecto.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
 
                     <div>
                       <label className="block text-sm font-medium text-text-primary mb-2">
@@ -1708,10 +2359,8 @@ const Facturas = () => {
                         onChange={(e) => setUploadFormData(prev => ({ ...prev, status: e.target.value }))}
                         className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="pendiente">Pendiente</option>
-                        <option value="aprobada">Aprobada</option>
-                        <option value="rechazada">Rechazada</option>
-                        <option value="pagada">Pagada</option>
+                        <option value="PENDIENTE">Pendiente</option>
+                        <option value="PAGADA">Pagada</option>
                       </select>
                     </div>
                   </div>
@@ -1721,7 +2370,7 @@ const Facturas = () => {
               {/* Panel derecho - Formulario de datos */}
               <div className="space-y-4">
                 <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
-                  <h3 className="text-lg font-semibold mb-4 text-text-primary">3. Datos de la Factura</h3>
+                  <h3 className="text-lg font-semibold mb-4 text-text-primary">4. Datos de la Factura</h3>
                   
                   {extractedData ? (
                     <div className="space-y-4">
@@ -1752,8 +2401,8 @@ const Facturas = () => {
                             </label>
                             <input
                               type="date"
-                              value={formData.date}
-                              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                              value={formData.invoice_date}
+                              onChange={(e) => setFormData(prev => ({ ...prev, invoice_date: e.target.value }))}
                               className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
@@ -1762,27 +2411,101 @@ const Facturas = () => {
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-text-primary mb-2">
-                              Monto Total
+                              Tipo de Venta
+                            </label>
+                            <select
+                              value={formData.sale_type}
+                              onChange={(e) => setFormData(prev => ({ ...prev, sale_type: e.target.value }))}
+                              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">Seleccionar tipo</option>
+                              <option value="CONTADO">Contado</option>
+                              <option value="CREDITO">Crédito</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-text-primary mb-2">
+                              Método de Pago
+                            </label>
+                            <select
+                              value={formData.payment_method}
+                              onChange={(e) => setFormData(prev => ({ ...prev, payment_method: e.target.value }))}
+                              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">Seleccionar método</option>
+                              <option value="EFECTIVO">Efectivo</option>
+                              <option value="TRANSFERENCIA">Transferencia</option>
+                              <option value="CHEQUE">Cheque</option>
+                              <option value="TARJETA">Tarjeta</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-text-primary mb-2">
+                              Subtotal
                             </label>
                             <input
                               type="number"
                               step="0.01"
-                              value={formData.total_amount}
-                              onChange={(e) => setFormData(prev => ({ ...prev, total_amount: e.target.value }))}
+                              value={formData.subtotal}
+                              onChange={(e) => handleSubtotalChange(e.target.value)}
                               className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder="0.00"
                             />
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-text-primary mb-2">
-                              Método de Pago
+                              IVA (19%)
                             </label>
                             <input
-                              type="text"
-                              value={formData.payment_method}
-                              onChange={(e) => setFormData(prev => ({ ...prev, payment_method: e.target.value }))}
+                              type="number"
+                              step="0.01"
+                              value={formData.iva_amount}
+                              readOnly
+                              className="w-full bg-gray-600 border border-gray-600 rounded-lg px-3 py-2 text-text-primary"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-text-primary mb-2">
+                              Retención
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={formData.retention}
+                              onChange={(e) => handleRetentionChange(e.target.value)}
                               className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Efectivo, Transferencia, etc."
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-text-primary mb-2">
+                              Total
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={formData.total_amount}
+                              readOnly
+                              className="w-full bg-gray-600 border border-gray-600 rounded-lg px-3 py-2 text-text-primary font-bold"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-text-primary mb-2">
+                              Fecha de Vencimiento
+                            </label>
+                            <input
+                              type="date"
+                              value={formData.due_date}
+                              onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
+                              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
                         </div>
@@ -1802,7 +2525,7 @@ const Facturas = () => {
 
                         <button
                           type="submit"
-                          disabled={formLoading}
+                          disabled={formLoading || !uploadFile || !paymentSupportFile}
                           className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
                         >
                           {formLoading ? (
@@ -1822,8 +2545,14 @@ const Facturas = () => {
                   ) : (
                     <div className="text-center py-8">
                       <MdCloudUpload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <div className="text-text-secondary">
-                        Sube un archivo para extraer los datos automáticamente
+                      <div className="text-text-secondary mb-4">
+                        Selecciona ambos archivos (factura PDF y soporte de pago) para continuar
+                      </div>
+                      <div className="text-sm text-text-secondary">
+                        {!uploadFile && !paymentSupportFile && "Selecciona ambos archivos"}
+                        {uploadFile && !paymentSupportFile && "Falta el archivo de soporte de pago"}
+                        {!uploadFile && paymentSupportFile && "Falta el archivo de factura PDF"}
+                        {uploadFile && paymentSupportFile && "Ambos archivos seleccionados - Completa los datos de la factura"}
                       </div>
                     </div>
                   )}
@@ -1843,71 +2572,6 @@ const Facturas = () => {
         </div>
       )}
 
-      {/* Modal de Estadísticas */}
-      {showEstadisticas && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-primary-card border border-gray-700/50 rounded-xl p-6 w-full max-w-2xl mx-4">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
-                <MdBarChart className="w-6 h-6 text-blue-500" />
-                Estadísticas de Facturas
-              </h2>
-              <button
-                onClick={() => setShowEstadisticas(false)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-
-            {estadisticas ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
-                  <div className="text-blue-400 text-2xl font-bold">
-                    {estadisticas.total_invoices || 0}
-                  </div>
-                  <div className="text-text-secondary text-sm">Total de Facturas</div>
-                </div>
-                <div className="bg-green-900/20 border border-green-700/50 rounded-lg p-4">
-                  <div className="text-green-400 text-2xl font-bold">
-                    {formatCurrency(estadisticas.total_amount || 0)}
-                  </div>
-                  <div className="text-text-secondary text-sm">Monto Total</div>
-                </div>
-                <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
-                  <div className="text-yellow-400 text-2xl font-bold">
-                    {estadisticas.pending_invoices || 0}
-                  </div>
-                  <div className="text-text-secondary text-sm">Facturas Pendientes</div>
-                </div>
-                <div className="bg-purple-900/20 border border-purple-700/50 rounded-lg p-4">
-                  <div className="text-purple-400 text-2xl font-bold">
-                    {estadisticas.paid_invoices || 0}
-                  </div>
-                  <div className="text-text-secondary text-sm">Facturas Pagadas</div>
-                </div>
-                <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-4">
-                  <div className="text-red-400 text-2xl font-bold">
-                    {estadisticas.cancelled_invoices || 0}
-                  </div>
-                  <div className="text-text-secondary text-sm">Facturas Canceladas</div>
-                </div>
-                <div className="bg-gray-900/20 border border-gray-700/50 rounded-lg p-4">
-                  <div className="text-gray-400 text-2xl font-bold">
-                    {formatCurrency(estadisticas.average_invoice || 0)}
-                  </div>
-                  <div className="text-text-secondary text-sm">Promedio por Factura</div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                <div className="text-text-secondary">Cargando estadísticas...</div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Modal de Facturas Próximas a Vencer */}
       {showFacturasProximasVencer && (
@@ -2047,6 +2711,242 @@ const Facturas = () => {
                 <div className="text-text-secondary">Cargando facturas próximas a vencer...</div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Subir Documentos */}
+      {isUploadDocumentsModalOpen && selectedFactura && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-primary-card rounded-2xl shadow-2xl max-w-2xl w-full p-6 relative border border-gray-700/50">
+            <button 
+              onClick={() => setIsUploadDocumentsModalOpen(false)} 
+              className="absolute top-4 right-4 text-text-secondary hover:text-text-primary text-xl transition-colors duration-200"
+            >
+              ×
+            </button>
+            
+            <h2 className="text-xl font-bold mb-6 text-text-primary">Subir Documentos</h2>
+            <p className="text-text-secondary mb-6">Factura: <span className="font-medium text-text-primary">{selectedFactura.invoice_number}</span></p>
+            
+            {uploadDocumentsError && (
+              <div className="mb-4 p-3 bg-red-900/20 border border-red-700/50 rounded-lg">
+                <div className="text-red-400 text-sm">{uploadDocumentsError}</div>
+              </div>
+            )}
+
+            <div className="space-y-6">
+              {/* Soporte de Pago */}
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Soporte de Pago (PDF, JPG, PNG)
+                </label>
+                <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-gray-500 transition-colors">
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setUploadDocumentsData(prev => ({ ...prev, payment_support: e.target.files[0] }))}
+                    className="hidden"
+                    id="payment-support-upload"
+                  />
+                  <label htmlFor="payment-support-upload" className="cursor-pointer">
+                    <MdCloudUpload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <div className="text-text-primary font-medium">
+                      {uploadDocumentsData.payment_support ? uploadDocumentsData.payment_support.name : "Haz clic para seleccionar soporte de pago"}
+                    </div>
+                    <div className="text-text-secondary text-sm mt-2">
+                      PDF, JPG, PNG (máx. 10MB)
+                    </div>
+                  </label>
+                </div>
+                {uploadDocumentsData.payment_support && (
+                  <div className="mt-2 bg-green-900/20 border border-green-700/50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-green-400">
+                      <MdUpload className="h-4 w-4" />
+                      <span className="text-sm font-medium">Archivo seleccionado: {uploadDocumentsData.payment_support.name}</span>
+                    </div>
+                    <div className="text-xs text-green-300 mt-1">
+                      Tamaño: {(uploadDocumentsData.payment_support.size / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Archivo de Factura */}
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Archivo de Factura (PDF, JPG, PNG)
+                </label>
+                <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-gray-500 transition-colors">
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setUploadDocumentsData(prev => ({ ...prev, invoice_file: e.target.files[0] }))}
+                    className="hidden"
+                    id="invoice-file-upload"
+                  />
+                  <label htmlFor="invoice-file-upload" className="cursor-pointer">
+                    <MdCloudUpload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <div className="text-text-primary font-medium">
+                      {uploadDocumentsData.invoice_file ? uploadDocumentsData.invoice_file.name : "Haz clic para seleccionar archivo de factura"}
+                    </div>
+                    <div className="text-text-secondary text-sm mt-2">
+                      PDF, JPG, PNG (máx. 10MB)
+                    </div>
+                  </label>
+                </div>
+                {uploadDocumentsData.invoice_file && (
+                  <div className="mt-2 bg-green-900/20 border border-green-700/50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-green-400">
+                      <MdUpload className="h-4 w-4" />
+                      <span className="text-sm font-medium">Archivo seleccionado: {uploadDocumentsData.invoice_file.name}</span>
+                    </div>
+                    <div className="text-xs text-green-300 mt-1">
+                      Tamaño: {(uploadDocumentsData.invoice_file.size / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Botones */}
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setIsUploadDocumentsModalOpen(false)}
+                  disabled={uploadDocumentsLoading}
+                  className="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors duration-200 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleUploadDocumentsSubmit}
+                  disabled={uploadDocumentsLoading || (!uploadDocumentsData.payment_support && !uploadDocumentsData.invoice_file)}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors duration-200 flex items-center gap-2"
+                >
+                  {uploadDocumentsLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Subiendo...
+                    </>
+                  ) : (
+                    'Subir Documentos'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edición Rápida */}
+      {isQuickEditModalOpen && selectedFactura && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-primary-card rounded-2xl shadow-2xl max-w-md w-full p-6 relative border border-gray-700/50">
+            <button 
+              onClick={() => setIsQuickEditModalOpen(false)} 
+              className="absolute top-4 right-4 text-text-secondary hover:text-text-primary text-xl transition-colors duration-200"
+            >
+              ×
+            </button>
+            
+            <h2 className="text-xl font-bold mb-6 text-text-primary">Editar Factura</h2>
+            <p className="text-text-secondary mb-6">Factura: <span className="font-medium text-text-primary">{selectedFactura.invoice_number}</span></p>
+            
+            {quickEditError && (
+              <div className="mb-4 p-3 bg-red-900/20 border border-red-700/50 rounded-lg">
+                <div className="text-red-400 text-sm">{quickEditError}</div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {/* Cambiar Centro de Costo */}
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Centro de Costo
+                </label>
+                {quickEditCentrosCosto.length === 0 ? (
+                  <div className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-secondary flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
+                    Cargando centros de costo...
+                  </div>
+                ) : (
+                  <select
+                    value={quickEditData.cost_center_id}
+                    onChange={(e) => setQuickEditData(prev => ({ ...prev, cost_center_id: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Seleccionar centro de costo</option>
+                    {quickEditCentrosCosto.map((centro) => (
+                      <option key={centro.cost_center_id} value={centro.cost_center_id}>
+                        {centro.cost_center_name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Cambiar Estado */}
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Estado de la Factura
+                </label>
+                <select
+                  value={quickEditData.status}
+                  onChange={(e) => setQuickEditData(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="PENDIENTE">Pendiente</option>
+                  <option value="PAGADA">Pagada</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Botones */}
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setIsQuickEditModalOpen(false)}
+                disabled={quickEditLoading}
+                className="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors duration-200 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleQuickEditSave}
+                disabled={quickEditLoading}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors duration-200 flex items-center gap-2"
+              >
+                {quickEditLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Guardando...
+                  </>
+                ) : (
+                  'Guardar Cambios'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Carga para Generación de Excel */}
+      {generatingExcel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-primary-card border border-gray-700/50 rounded-xl p-8 w-full max-w-md mx-4">
+            <div className="flex flex-col items-center text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-green-500 mb-6"></div>
+              <h2 className="text-xl font-bold text-text-primary mb-2">
+                Generando Reporte Excel
+              </h2>
+              <p className="text-text-secondary mb-4">
+                Por favor espera mientras se procesa tu reporte...
+              </p>
+              <div className="w-full bg-gray-700 rounded-full h-2">
+                <div className="bg-green-500 h-2 rounded-full animate-pulse" style={{width: '100%'}}></div>
+              </div>
+              <p className="text-xs text-text-secondary mt-3">
+                Esto puede tomar unos momentos dependiendo del tamaño del reporte
+              </p>
+            </div>
           </div>
         </div>
       )}
